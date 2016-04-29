@@ -1,0 +1,65 @@
+# use glob syntax.
+syntax: glob
+*.ser
+*.class
+*~
+*.bak
+#*.off
+*.old
+*.pyc
+*.bk
+*.swp
+.DS_Store
+
+# logging files
+detailed.log
+
+# eclipse conf file
+.settings
+.classpath
+.project
+.manager
+.scala_dependencies
+
+# idea
+.idea
+*.iml
+
+# building
+target
+build
+null
+tmp*
+temp*
+dist
+test-output
+build.log
+
+# other scm
+.svn
+.CVS
+.hg*
+
+# switch to regexp syntax.
+#  syntax: regexp
+#  ^\.pc/
+
+#SHITTY output not in target directory
+build.log
+
+#emacs TAGS
+TAGS
+
+lib/
+env/
+
+# Crystal files
+*.wfn
+*.cube
+parser/parser-cp2k/cp2kparser/versions/**/input_data/*.xml
+parser/parser-cp2k/cp2kparser/versions/**/input_data/*.html
+test/unittests/BASIS_SET
+test/unittests/GTH_POTENTIALS
+
+# Setuptools install folder
+# parser/parser-crystal/crystalparser.egg-info/
