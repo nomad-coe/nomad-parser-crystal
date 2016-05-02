@@ -9,7 +9,7 @@ testing:
     - cd nomad-lab-base
     - git submodule foreach git checkout master
     - git submodule foreach git pull
-    - sbt cp2k/test
+    - sbt crystal/test
   only:
     - master
   tags:
