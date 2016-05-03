@@ -26,8 +26,37 @@ class CrystalParser(ParserInterface):
         # main parser for this version.
 
         # Setup the correct main parser based on the version id. If no match
-        # for the version is found, use the main parser for CP2K 2.6.2
+        # for the version is found, use the main parser for Crystal14
         # self.main_parser = get_main_parser(version_id)(self.parser_context.main_file, self.parser_context)
+        regex1 = re.compile(r" [\*]{22,}\n")
+        regex2 = re.compile(r" \*[ ]{20,}\*\n")
+        regex3 = re.compile(r" \*[ ]{10,}CRYSTAL([\d]+)[ ]{10,}\*\n")
+        regex4 = re.compile(r" \*[ ]{10,}public \: ([\d\.]+) \- [A-Z]{1}[a-z]{2} [\d]+[a-z]{2}, [\d]{4}[ ]{10,}\*\n")
+        line1 = line2 = line3 = line4 = line5 = ""
+        version_minor = version_major = version_id = ""
+        with open(self.parser_context.main_file, 'r') as outputfile:
+            while True:
+                line5 = next(outputfile)
+                if not line5:
+                    break
+                line1 = line2
+                line2 = line3
+                line3 = line4
+                line4 = line5
+                if regex1.match(line1) and regex2.match(line2):
+                    result3 = regex3.match(line3)
+                    if not result3:
+                        continue
+                    result4 = regex4.match(line4)
+                    if not result4:
+                        continue
+                    version_major = result3.group(1)
+                    version_minor = result4.group(1).replace('.', '')
+                    version_id = version_major + "_" + version_minor;
+                    break
+        if not version_id:
+            logger.error("Could not find a version specification from the given main file.")
+        self.main_parser = get_main_parser(version_id)(self.parser_context.main_file, self.parser_context)
 
     def get_metainfo_filename(self):
         return "crystal.nomadmetainfo.json"

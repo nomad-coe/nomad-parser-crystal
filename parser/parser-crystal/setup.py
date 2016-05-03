@@ -1,8 +1,8 @@
 """
 This is a setup script for installing the parser locally on python path with
-all the required dependencies. Used to setup the parser locally.
+all the required dependencies. Used mainly for local testing.
 """
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 #===============================================================================
@@ -11,11 +11,15 @@ def main():
     setup(
         name="crystalparser",
         version="0.1",
-        description="NoMaD parser implementation for Crystal",
-        author="Lauri Himanen",
-        author_email="lauri.himanen@gmail.com",
+        include_package_data=True,
+        package_data={
+            'crystalparser.versions.14_103': ['input_data/*.json', 'input_data/*.pickle'],
+        },
+        description="NoMaD parser implementation for CRYSTAL",
+        author="Sami Kivisto",
+        author_email="sami.k.kivisto@aalto.fi",
         license="GPL3",
-        packages=["crystalparser"],
+        packages=find_packages(),
         install_requires=[
             'pint',
             'numpy',
