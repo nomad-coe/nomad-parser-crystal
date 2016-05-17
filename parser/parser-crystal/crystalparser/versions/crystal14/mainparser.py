@@ -25,7 +25,7 @@ class CrystalMainParser(MainHierarchicalParser):
         # Define the output parsing tree for this version
         self.root_matcher = SM("",
             forwardMatch=True,
-            sections=['section_run', "section_system_description", "section_method"],
+            sections=['section_run', "section_system", "section_method"],
             subMatchers=[
                 SM( r"^input data in .+$",
                     forwardMatch=True,
