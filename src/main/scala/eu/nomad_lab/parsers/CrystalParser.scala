@@ -21,11 +21,23 @@ object CrystalParser extends SimpleExternalParserGenerator(
       )) :: Nil
   ),
   mainFileTypes = Seq("text/.*"),
-  mainFileRe = """  """.r,
-  cmd = Seq(DefaultPythonInterpreter.python2Exe(), "${envDir}/parsers/crystal/parser/parser-crystal/....",
+  mainFileRe = """\s*[\*]{22,}
+\s*\*\s{20,}\*
+\s*\*\s{10,}CRYSTAL(?<majorVersion>[\d]+)\s{10,}\*
+\s*\*\s{10,}public \: (?<minorVersion>[\d\.]+) \- .*\*
+""".r, // [A-Z]{1}[a-z]{2} [\d]+[a-z]{2}, [\d]{4}[ ]{10,}\*
+  cmd = Seq(DefaultPythonInterpreter.python2Exe(), "${envDir}/parsers/crystal/parser/parser-crystal/crystalparser/scalainterface.py",
     "${mainFilePath}"),
   cmdCwd = "${mainFilePath}/..",
   resList = Seq(
+    "parser-crystal/crystalparser/versions/crystal14/__init__.py",
+    "parser-crystal/crystalparser/versions/crystal14/mainparser.py",
+    "parser-crystal/crystalparser/versions/__init__.py",
+    "parser-crystal/crystalparser/versions/versionsetup.py",
+    "parser-crystal/crystalparser/__init__.py",
+    "parser-crystal/crystalparser/parser.py",
+    "parser-crystal/crystalparser/setup_paths.py",
+    "parser-crystal/crystalparser/scalainterface.py",
     "nomad_meta_info/public.nomadmetainfo.json",
     "nomad_meta_info/common.nomadmetainfo.json",
     "nomad_meta_info/meta_types.nomadmetainfo.json",
