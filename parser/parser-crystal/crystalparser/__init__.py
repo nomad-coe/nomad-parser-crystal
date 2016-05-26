@@ -1,1 +1,1 @@
-from crystalparser.parser import CrystalParser
+from crystalparser.parser_crystal import CrystalParser
