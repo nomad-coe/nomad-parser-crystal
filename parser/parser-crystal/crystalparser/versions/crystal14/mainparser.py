@@ -2,6 +2,7 @@ import re
 from nomadcore.simple_parser import SimpleMatcher as SM
 from nomadcore.baseclasses import MainHierarchicalParser
 from nomadcore.caching_backend import CachingLevel
+#from commonmatcher import CommonMatcher
 import logging
 import numpy as np
 logger = logging.getLogger("nomad")
@@ -15,6 +16,7 @@ class CrystalMainParser(MainHierarchicalParser):
         """Initialize an output parser.
         """
         super(CrystalMainParser, self).__init__(file_path, parser_context)
+        #self.setup_common_matcher(CommonMatcher(parser_context))
 
         class SubFlags:
             Sequenced = 0    # the subMatchers should be executed in sequence
@@ -25,6 +27,7 @@ class CrystalMainParser(MainHierarchicalParser):
         self.regex_i = "-?\d+" # Regex for an integer
         self.float_match = '(' + self.regex_f + ')'
         self.input = {} #hash for storing input related information
+        self.system = {}
         self.input_geometries = {
             'CRYSTAL'  : 1,
             'SLAB'     : 1,
@@ -75,6 +78,9 @@ class CrystalMainParser(MainHierarchicalParser):
         self.caching_level_for_metaname = {
             'x_crystal_input_title': CachingLevel.ForwardAndCache,
             'x_crystal_input_keyword': CachingLevel.Cache,
+            'x_crystal_primitive_cell_atom_value1': CachingLevel.Cache,
+            'x_crystal_primitive_cell_atom_value2': CachingLevel.Cache,
+            'x_crystal_primitive_cell_atom_value3': CachingLevel.Cache
         }
 
         # Define the output parsing tree for this version
@@ -103,7 +109,7 @@ class CrystalMainParser(MainHierarchicalParser):
                 SM( "^\s*(?P<x_crystal_input_keyword>[A-Za-z]+)\s*$",
                     repeats=True,
                     adHoc=self.adHoc_x_crystal_input(0))
-                ], 5, 'x_crystal_input', 'value')
+                ], 'x_crystal_input', 'value', 1, 5)
         )
         matcher_header = SM("^\s*[\*]{10,}\s*$",
             sections=['x_crystal_section_header'],
@@ -117,16 +123,40 @@ class CrystalMainParser(MainHierarchicalParser):
             forwardMatch=True,
             sections=['x_crystal_section_startinformation'],
             subMatchers=[
-                SM( r"^\s+\w+\s+STARTING\s+DATE\s+(?P<x_crystal_run_start_date>\d{2} \d{2} \d{4}) TIME (?P<x_crystal_run_start_time>\d{2}\:\d{2}\:\d{2})\.\d{1}$")
+                SM( "^\s+\w+\s+STARTING\s+DATE\s+(?P<x_crystal_run_start_date>\d{2} \d{2} \d{4}) TIME (?P<x_crystal_run_start_time>\d{2}\:\d{2}\:\d{2})\.\d{1}$"),
+                SM( "^\s*(?P<x_crystal_run_title>.*?)\s*$"),
+                
         ])
-        matcher_system = SM( "^\s*SPACE GROUP \(CENTROSYMMETRIC\)\s*\:\s*[A-Z0-9\-\/\ ]+\s*$",
-            forwardMatch=True,
+        matcher_system = SM( "^\s*CRYSTAL\s+CALCULATION\s*$",
             sections=['section_system'],
             subMatchers=[
-                SM( "^\s*SPACE GROUP \(CENTROSYMMETRIC\)\s*\:\s*[A-Z0-9\-\/\ ]+\s*$",
-                    forwardMatch=True,
-                    adHoc=self.adHoc_spacegroup()
-                ),
+                SM( "^\s*CRYSTAL\s+FAMILY\s*:\s*(?P<x_crystal_family>.*?\S.*?)\s*$"),
+                SM( "^\s*CRYSTAL\s+CLASS\s+\(?\s*(?P<x_crystal_class_ref>.*?\S.*?)\s*\)?\s*:\s*(?P<x_crystal_class>.*?\S.*?)\s*$"),
+                SM( "^\s*SPACE\s+GROUP\s+\(\s*(?P<x_crystal_spacegroup_class>\S.*?\S)\s*\)\s*:\s*(?P<x_crystal_spacegroup>.*?\S.*?)\s*$", otherMetaInfo=['spacegroup_3D_number'], adHoc=self.adHoc_x_crystal_spacegroup()),
+                SM( "^\s*LATTICE\s+PARAMETERS\s+\(?\s*(?P<x_crystal_conventional_cell_units>.*?\S.*?)\s*\)?\s*\-\s*CONVENTIONAL\s+CELL\s*$",
+                    sections=['x_crystal_section_conventional_cell'],
+                    subMatchers=[
+                        SM( "^\s*A\s+B\s+C\s+ALPHA\s+BETA\s+GAMMA\s*$", subFlags = SubFlags.Unordered, subMatchers=self.appendNumberMatchers([], 'x_crystal_conventional_cell', 'value', 6, 6)),
+                        SM( "^\s*NUMBER\s+OF\s+IRREDUCIBLE\s+ATOMS\s+IN\s+THE\s+CONVENTIONAL\s+CELL\s*:\s*(?P<x_crystal_conventional_cell_number_of_atoms>\d+)\s*$"),
+                        SM( "^\s*ATOM\s+AT\.\s+N\.\s+COORDINATES\s*$", subFlags = SubFlags.Unordered, subMatchers=self.appendNumberMatchers([], 'x_crystal_conventional_cell', 'value', 3, 5))
+                ]),
+                SM( "^\s*LATTICE\s+PARAMETERS\s+\(?\s*(?P<x_crystal_primitive_cell_units>.*?\S.*?)\s*\)?\s*\-\s*PRIMITIVE\s+CELL\s*$",
+                    sections=['x_crystal_section_primitive_cell'],
+                    subMatchers=[
+                        SM( "^\s*A\s+B\s+C\s+ALPHA\s+BETA\s+GAMMA\s+VOLUME\s*$", subFlags = SubFlags.Unordered, subMatchers=self.appendNumberMatchers([], 'x_crystal_primitive_cell', 'value', 7, 7)),
+                        SM( "^\s*COORDINATES\s+OF\s+THE\s+EQUIVALENT\s+ATOMS\s+\(\s*(?P<x_crystal_primitive_cell_units_atom>.*?\S.*?)\s*\)\s*$"),
+                        SM( "^\s*N\.\s+ATOM\s+EQUIV\s+AT\.\s+N\.\s+X\s+Y\s+Z\s*$", subFlags = SubFlags.Unordered, subMatchers=[
+                            SM( ("^\s*(?P<x_crystal_primitive_cell_atom_number>\d+)\s+(?P<x_crystal_primitive_cell_atom_label>\d+)\s+(?P<x_crystal_primitive_cell_atom_number_of_equivalents>\d+)\s+" +
+                                "(?P<x_crystal_primitive_cell_atom_z>\d+)\s+(?P<x_crystal_primitive_cell_atom_element>\S+)\s+" +
+                                "(?P<x_crystal_primitive_cell_atom_value1>{0})\s+(?P<x_crystal_primitive_cell_atom_value2>{0})\s+(?P<x_crystal_primitive_cell_atom_value3>{0})\s*$").format(self.regex_f),
+                                sections=['x_crystal_section_primitive_cell_atom'],
+                                repeats=True,
+                                adHoc=self.adHoc_x_crystal_primitive_cell_atom(3))
+                        ])
+                ]),
+                SM( "^\s*NUMBER\s+OF\s+SYMMETRY\s+OPERATORS\s*:\s*(?P<x_crystal_number_of_symmetry_operators>\d+)\s*$"),
+                SM( "^\s*GEOMETRY\s+NOW\s+FULLY\s+CONSISTENT\s+WITH\s+THE\s+GROUP\s*$", adHoc=self.adHoc_x_crystal_geometry_consistent(1)),
+                SM( "^\s*INFORMATION\s+\*+\s+INPFREQ\s+\*+\s+DIELECTRIC\s+TENSOR\s+INPUT\s*$", adHoc=self.adHoc_x_crystal_dielectric_tensor()),
                 SM( "^\s*GEOMETRY FOR WAVE FUNCTION \- DIMENSIONALITY OF THE SYSTEM\s+\d+\s*$",
                     forwardMatch=True,
                     subMatchers=[
@@ -168,7 +198,6 @@ class CrystalMainParser(MainHierarchicalParser):
                     ]
                 )
         ])
-        
         self.root_matcher = SM("^.*$",
             forwardMatch=True,
             subMatchers=[
@@ -179,18 +208,19 @@ class CrystalMainParser(MainHierarchicalParser):
                 matcher_system
         ])
 
-    def appendNumberMatchers(self, subMatchers, n, sname, key):
+    def appendNumberMatchers(self, subMatchers, sname, key, n_min, n_max):
         regexes = []
-        for i in range(1,n+1):
+        attrname = "adHoc_" + sname
+        attrobject = getattr(self, attrname)
+        if attrobject is None:
+            raise Exception("No such function" + attname)
+        for i in range(1, n_max+1):
             keyword = sname + '_' + key + str(i)
             self.caching_level_for_metaname[keyword] = CachingLevel.Cache
             regexes.append("(?P<" + keyword + ">{0})")
-            regex_str = ("^\s*" + "\s+".join(regexes) + "\s*$").format(self.regex_f)
-            attrname = "adHoc_" + sname
-            attrobject = getattr(self, attrname)
-            if attrobject is None:
-                raise Exception("No such function" + attname)
-            subMatchers.append(SM(regex_str, repeats=True, adHoc=attrobject(i)))
+            if i >= n_min:
+                regex_str = ("^\s*" + "\s+".join(regexes) + "\s*$").format(self.regex_f)
+                subMatchers.append(SM(regex_str, repeats=True, adHoc=attrobject(i)))
         return subMatchers
             
     def getSection(self, parser):
@@ -231,6 +261,15 @@ class CrystalMainParser(MainHierarchicalParser):
         if section is None:
             return None
         key = self.getKey(sectionname, key)
+        data = section[key]
+        if data is not None:
+            data = data[len(data)-1]
+        return data
+
+    def getAdHocValueFullName(self, parser, key):
+        section,sectionname = self.getSection(parser)
+        if section is None:
+            return None
         data = section[key]
         if data is not None:
             data = data[len(data)-1]
@@ -473,36 +512,94 @@ class CrystalMainParser(MainHierarchicalParser):
 
     def adhoc_input_shrink(self, parser, n, values, keyword, endpattern):
         if self.input_substate == 0:
-            print "DEBUG: adhoc_input_shrink 1"
             self.input_substate += 1
             return
         if n != 2:
             return self.inputFails("shrink should contain 2 values")
-        print "DEBUG: adhoc_input_shrink 2"
         parser.backend.addArrayValues('x_crystal_input_shrink', np.array(values))
         self.input_adhoc = None
         return
         
     def adhoc_input_ppan(self, parser, n, values, keyword, endpattern):
-        print "DEBUG: adhoc_input_ppan 1"
         parser.backend.addValue('x_crystal_input_ppan', 1)
         self.input_adhoc = None
         return
 
-    def adHoc_spacegroup(self):
+    def adHoc_x_crystal_conventional_cell(self, n):
         def wrapper(parser):
-            name = re.compile("^\s*SPACE GROUP \(CENTROSYMMETRIC\)\s*\:\s*([A-Z0-9\-\/\ ]+)\s*$").match(parser.fIn.readline())
-            if name is None:
+            values = self.getAdHocValues(parser, 'value', n)
+            number_of_atoms = self.getAdHocValue(parser, 'number_of_atoms')
+            if number_of_atoms is None:
+                if n == 6:
+                    parser.backend.addArrayValues('x_crystal_conventional_cell_lengths', np.array(values[0:3]))
+                    parser.backend.addArrayValues('x_crystal_conventional_cell_angles', np.array(values[3:6]))
+                    return
+                raise Exception("Do not know how to handle "+str(n)+" cell parameters")
+            if n <= 2:
+                raise Exception("Not enough parameters for atom")
+            gIndex = parser.backend.openSection('x_crystal_section_conventional_cell_atom')
+            parser.backend.addValue('x_crystal_conventional_cell_atom_label', values[0])
+            parser.backend.addValue('x_crystal_conventional_cell_atom_z', values[1])
+            parser.backend.addArrayValues('x_crystal_conventional_cell_atom_coordinates', np.array(values[2:n]))
+            parser.backend.closeSection('x_crystal_section_conventional_cell_atom', gIndex)
+            return
+        return wrapper
+
+    def adHoc_x_crystal_primitive_cell(self, n):
+        def wrapper(parser):
+            values = self.getAdHocValues(parser, 'value', n)
+            if n == 7:
+                parser.backend.addArrayValues('x_crystal_primitive_cell_lengths', np.array(values[0:3]))
+                parser.backend.addArrayValues('x_crystal_primitive_cell_angles', np.array(values[3:6]))
+                parser.backend.addValue('x_crystal_primitive_cell_volume', values[6])
                 return
-            name = str(name.group(1))
-            while(name.endswith(" ")):
-                name = name[:-1]
-            while(name.startswith(" ")):
-                name = name[1:]
+            raise Exception("Do not know how to handle "+str(n)+" cell parameters")
+            pass
+        return wrapper
+
+    def adHoc_x_crystal_primitive_cell_atom(self, n):
+        def wrapper(parser):
+            values = self.getAdHocValues(parser, 'value', n)
+            parser.backend.addArrayValues('x_crystal_primitive_cell_atom_coordinates', np.array(values))
+            return
+        return wrapper
+
+    def adHoc_x_crystal_geometry_consistent(self, v):
+        def wrapper(parser):
+            parser.backend.addValue('x_crystal_geometry_consistent', v)
+            return
+        return wrapper
+        
+    def adHoc_x_crystal_spacegroup(self):
+        def wrapper(parser):
+            name = self.getAdHocValueFullName(parser, 'x_crystal_spacegroup')
             for i in range(230):
                 if name == self.spacegroups[i]:
                     parser.backend.addValue("spacegroup_3D_number", i+1)
                     break
+        return wrapper
+
+    def adHoc_x_crystal_dielectric_tensor(self):
+        def wrapper(parser):
+            # Read the lines containing the cell vectors
+            a_line = parser.fIn.readline()
+            b_line = parser.fIn.readline()
+            c_line = parser.fIn.readline()
+
+            # Define the regex that extracts the components and apply it to the lines
+            regex_string = r"^\s*({0})\s+({0})\s+({0})\s*$".format(self.regex_f)
+            regex_compiled = re.compile(regex_string)
+            a_result = regex_compiled.match(a_line)
+            b_result = regex_compiled.match(b_line)
+            c_result = regex_compiled.match(c_line)
+
+            # Convert the string results into a 3x3 numpy array
+            tensor = np.zeros((3, 3))
+            tensor[0, :] = [float(x) for x in a_result.groups()]
+            tensor[1, :] = [float(x) for x in b_result.groups()]
+            tensor[2, :] = [float(x) for x in c_result.groups()]
+
+            parser.backend.addArrayValues('x_crystal_dielectric_tensor', tensor)
         return wrapper
 
     def adHoc_single_point_converged(self):
