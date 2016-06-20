@@ -1,3 +1,4 @@
+from __future__ import print_function
 import re
 from nomadcore.simple_parser import SimpleMatcher as SM
 from nomadcore.baseclasses import MainHierarchicalParser
@@ -481,7 +482,7 @@ class CrystalMainParser(MainHierarchicalParser):
                 attr = getattr(self, self.input_adhoc)
                 return attr(parser, n, values, keyword, endpattern)
             if self.input_state == 13:
-                print "EXTRA LINES"
+                print("EXTRA LINES")
                 return
         return wrapper
     
