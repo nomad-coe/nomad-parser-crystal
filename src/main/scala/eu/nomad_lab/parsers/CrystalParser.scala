@@ -26,7 +26,7 @@ object CrystalParser extends SimpleExternalParserGenerator(
 \s*\*\s{10,}CRYSTAL(?<majorVersion>[\d]+)\s{10,}\*
 \s*\*\s{10,}public \: (?<minorVersion>[\d\.]+) \- .*\*
 """.r, // [A-Z]{1}[a-z]{2} [\d]+[a-z]{2}, [\d]{4}[ ]{10,}\*
-  cmd = Seq(DefaultPythonInterpreter.python2Exe(), "${envDir}/parsers/crystal/parser/parser-crystal/crystalparser/scalainterface.py",
+  cmd = Seq(DefaultPythonInterpreter.pythonExe(), "${envDir}/parsers/crystal/parser/parser-crystal/crystalparser/scalainterface.py",
     "${mainFilePath}"),
   cmdCwd = "${mainFilePath}/..",
   resList = Seq(
