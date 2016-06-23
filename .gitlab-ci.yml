@@ -10,9 +10,10 @@ testing:
     - git submodule foreach git checkout master
     - git submodule foreach git pull
     - sbt crystal/test
+    - export PYTHONEXE=/labEnv/bin/python
+    - sbt crystal/test
   only:
     - master
   tags:
     - test
     - spec2
-  allow_failure: true
