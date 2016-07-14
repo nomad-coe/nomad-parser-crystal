@@ -81,7 +81,9 @@ class CrystalMainParser(MainHierarchicalParser):
             'P 43 3 2', 'P 41 3 2', 'I 41 3 2', 'P -4 3 M', 'F -4 3 M', 'I -4 3 M', 'P -4 3 N', 'F -4 3 C', 'I -4 3 D', 'P M 3 M', 
             'P N 3 N', 'P M 3 N', 'P N 3 M', 'F M 3 M', 'F M 3 C', 'F D 3 M', 'F D 3 C', 'I M 3 M', 'I A 3 D']
 
-        self.caching_level_for_metaname = {
+        #=======================================================================
+        # Cache levels
+        self.caching_levels.update({
             'x_crystal_input_title': CachingLevel.ForwardAndCache,
             'x_crystal_input_keyword': CachingLevel.Cache,
             'x_crystal_primitive_cell_atom_value1': CachingLevel.Cache,
@@ -110,7 +112,7 @@ class CrystalMainParser(MainHierarchicalParser):
             'x_crystal_vibrational_integer2': CachingLevel.Cache,
             'x_crystal_restart_dos_scale_t': CachingLevel.ForwardAndCache,
             'x_crystal_restart_dos_energy_text':  CachingLevel.Cache
-        }
+        })
 
         # Define the output parsing tree for this version
 
@@ -769,7 +771,7 @@ class CrystalMainParser(MainHierarchicalParser):
         for i in range(1, n+1):
             keyword = key + str(i)
             arr.append("(?P<" + keyword + ">" + self.regex_f + ")")
-            self.caching_level_for_metaname[keyword] = CachingLevel.Cache
+        self.caching_levels.update({keyword: CachingLevel.Cache})
         return "\s+".join(arr)
 
     def ds(self, n):
@@ -786,7 +788,7 @@ class CrystalMainParser(MainHierarchicalParser):
         for i in range(1, n+1):
             keyword = key + str(i)
             arr.append("(?P<" + keyword + ">" + self.regex_i + ")")
-            self.caching_level_for_metaname[keyword] = CachingLevel.Cache
+            self.caching_levels.update({keyword: CachingLevel.Cache})
         return "\s+".join(arr)
 
     def ws(self, n):
@@ -803,7 +805,7 @@ class CrystalMainParser(MainHierarchicalParser):
         for i in range(1, n+1):
             keyword = key + str(i)
             arr.append("(?P<" + keyword + ">" + self.regex_s + ")")
-            self.caching_level_for_metaname[keyword] = CachingLevel.Cache
+            self.caching_levels.update({keyword: CachingLevel.Cache})
         return "\s+".join(arr)
 
 
@@ -815,8 +817,7 @@ class CrystalMainParser(MainHierarchicalParser):
             ret += '(?P<' + key1 + '>[0-9 ]{' + str(digits) + '})'
             ret += '/'
             ret += '(?P<' + key2 + '>[0-9 ]{' + str(digits) + '})'
-            self.caching_level_for_metaname[key1] = CachingLevel.Cache
-            self.caching_level_for_metaname[key2] = CachingLevel.Cache
+            self.caching_levels.update({key1: CachingLevel.Cache, key2: CachingLevel.Cache})
         ret += '\)'
         return ret
             
@@ -828,7 +829,7 @@ class CrystalMainParser(MainHierarchicalParser):
             raise Exception("No such function" + attname)
         for i in range(1, n_max+1):
             keyword = sname + '_' + key + str(i)
-            self.caching_level_for_metaname[keyword] = CachingLevel.Cache
+            self.caching_levels.update({keyword: CachingLevel.Cache})
             regexes.append("(?P<" + keyword + ">{0})")
             if i >= n_min:
                 regex_str = ("^\s*" + "\s+".join(regexes) + "\s*$").format(self.regex_f)
@@ -841,8 +842,11 @@ class CrystalMainParser(MainHierarchicalParser):
         while n >= 0:
             ctx = parser.context[n]
             items = ctx.sections.items()
-            if len(items) > 0:
-                name, gIndex = items[len(items)-1]
+            lastitem = None;
+            for item in items:
+                lastitem = item
+            if lastitem is not None and len(lastitem) > 0:
+                name, gIndex = lastitem;
                 os = parser.backend.sectionManagers[name].openSections;
                 return [os[gIndex], name]
             n = n-1
@@ -1166,7 +1170,6 @@ class CrystalMainParser(MainHierarchicalParser):
                 attr = getattr(self, self.input_adhoc)
                 return attr(parser, n, values, keyword, endpattern)
             if self.input_state == 13:
-                print "EXTRA LINES"
                 return
         return wrapper
     
@@ -1350,7 +1353,7 @@ class CrystalMainParser(MainHierarchicalParser):
                 return
             periodic = []
             params = []
-            for i in xrange(6):
+            for i in range(6):
                 v = float(line1.group(i+1))
                 if i < 3:
                     params.append(v * self.bohr_angstrom)
@@ -1517,7 +1520,6 @@ class CrystalMainParser(MainHierarchicalParser):
         regx_gen = re.compile("^GENERATED FROM LINE\s*(\S+)\s*WITH OP\s+(\d+)$")
         def wrapper(parser):
             text = self.getAdHocValue(parser, 'text')
-            #print "DEBUG adHoc_x_crystal_section_frequency_gradients_op: " + str(text)
             if text is None:
                 raise Exception("adHoc_x_crystal_section_frequency_gradients_op: Unable to retrieve text value")
             if text == "GENERATED BY TRANSLATIONAL INVARIANCE":
@@ -1539,9 +1541,7 @@ class CrystalMainParser(MainHierarchicalParser):
         regx = re.compile(self.regex_f)
         def wrapper(parser):
             textline = parser.fIn.readline()
-            print "DEBUG adHoc_x_crystal_total_atomic_charges textline=" + textline
             v = regx.findall(textline)
-            print "DEBUG adHoc_x_crystal_total_atomic_charges v=" + str(v)
             if v is not None and len(v) >= 1:
                 parser.backend.addArrayValues('x_crystal_' + clas + '_atomic_charges', np.array(v))
             return
