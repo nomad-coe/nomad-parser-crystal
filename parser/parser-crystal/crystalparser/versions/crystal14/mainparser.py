@@ -1293,14 +1293,20 @@ class CrystalMainParser(MainHierarchicalParser):
     def adHoc_x_crystal_cell_transformation_matrix(self):
         regx = re.compile("^\s*" + "\s+".join([self.float_match] * 9) + "\s*$")
         def wrapper(parser):
-            values = np.array(regx.match(parser.fIn.readline()).groups())
+            values = []
+            for v in regx.match(parser.fIn.readline()).groups():
+                values.append(float(v))
+            values = np.array(values)
             parser.backend.addArrayValues('x_crystal_cell_transformation_matrix', np.reshape(values, [3,3]))
         return wrapper;
 
     def adHoc_x_crystal_cell_parameters(self):
         regx = re.compile("^\s*" + "\s+".join([self.float_match] * 6) + "\s*$")
         def wrapper(parser):
-            values = np.array(regx.match(parser.fIn.readline()).groups())
+            values = []
+            for v in regx.match(parser.fIn.readline()).groups():
+                values.append(float(v))
+            values = np.array(values)
             parser.backend.addArrayValues('x_crystal_cell_parameters', values)
             return
         return wrapper
