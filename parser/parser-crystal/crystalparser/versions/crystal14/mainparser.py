@@ -1357,17 +1357,15 @@ class CrystalMainParser(MainHierarchicalParser):
                 v = float(line1.group(i+1))
                 if i < 3:
                     params.append(v * self.bohr_angstrom)
-                    p = 1
+                    p = True
                     if v == 500:
-                        p = 0
+                        p = False
                     periodic.append(p)
                 else:
                     params.append(v)
-            params = np.array(params)
-            periodic = np.array(periodic)
             if self.bohr_angstrom > 0:
-                parser.backend.addArrayValues("x_crystal_lattice_parameters", params)
-            parser.backend.addArrayValues("configuration_periodic_dimensions", periodic)
+                parser.backend.addArrayValues("x_crystal_lattice_parameters", np.array(params))
+            parser.backend.addArrayValues("configuration_periodic_dimensions", np.array(periodic))
         return wrapper
 
     def adHoc_atom_positions(self):
