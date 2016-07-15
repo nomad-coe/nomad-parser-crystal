@@ -7,6 +7,27 @@ import logging
 import numpy as np
 logger = logging.getLogger("nomad")
 
+def flt(values):
+    arr = []
+    for v in values:
+        arr.append(float(v))
+    return np.array(arr)
+
+def ints(values):
+    arr = []
+    for v in values:
+        arr.append(int(v))
+    return np.array(arr)
+
+def flt2(values):
+    arr = []
+    for v in values:
+        arr2 = []
+        for v2 in v:
+            arr2.append(float(v2))
+        arr.append(arr2)
+    return np.array(arr)
+
 #===============================================================================
 class CrystalMainParser(MainHierarchicalParser):
     """The main parser class for crystal. This main parser will take the
@@ -771,7 +792,7 @@ class CrystalMainParser(MainHierarchicalParser):
         for i in range(1, n+1):
             keyword = key + str(i)
             arr.append("(?P<" + keyword + ">" + self.regex_f + ")")
-        self.caching_levels.update({keyword: CachingLevel.Cache})
+            self.caching_levels.update({keyword: CachingLevel.Cache})
         return "\s+".join(arr)
 
     def ds(self, n):
@@ -971,7 +992,7 @@ class CrystalMainParser(MainHierarchicalParser):
         ops = regx.findall(text)
         if ops is None or len(ops) < 1:
             raise Exception('onClose_x_crystal_section_vibrational_symmetry: invalid group ops')
-        backend.addArrayValues('x_crystal_vibrational_symmetry_group_operators', np.array(ops))
+        backend.addArrayValues('x_crystal_vibrational_symmetry_group_operators', ints(ops))
         return
 
     def onClose_x_crystal_section_properties_atom(self, backend, gIndex, section):
@@ -1293,21 +1314,14 @@ class CrystalMainParser(MainHierarchicalParser):
     def adHoc_x_crystal_cell_transformation_matrix(self):
         regx = re.compile("^\s*" + "\s+".join([self.float_match] * 9) + "\s*$")
         def wrapper(parser):
-            values = []
-            for v in regx.match(parser.fIn.readline()).groups():
-                values.append(float(v))
-            values = np.array(values)
+            values = flt(regx.match(parser.fIn.readline()).groups())
             parser.backend.addArrayValues('x_crystal_cell_transformation_matrix', np.reshape(values, [3,3]))
         return wrapper;
 
     def adHoc_x_crystal_cell_parameters(self):
         regx = re.compile("^\s*" + "\s+".join([self.float_match] * 6) + "\s*$")
         def wrapper(parser):
-            values = []
-            for v in regx.match(parser.fIn.readline()).groups():
-                values.append(float(v))
-            values = np.array(values)
-            parser.backend.addArrayValues('x_crystal_cell_parameters', values)
+            parser.backend.addArrayValues('x_crystal_cell_parameters', flt(regx.match(parser.fIn.readline()).groups()))
             return
         return wrapper
 
@@ -1420,9 +1434,9 @@ class CrystalMainParser(MainHierarchicalParser):
                     break
                 for kpoint in line:
                     gIndex = parser.backend.openSection('x_crystal_section_' + sname)
-                    parser.backend.addValue('x_crystal_' + sname + '_number', kpoint[0])
+                    parser.backend.addValue('x_crystal_' + sname + '_number', int(kpoint[0]))
                     parser.backend.addValue('x_crystal_' + sname + '_symbol', kpoint[1])
-                    parser.backend.addArrayValues('x_crystal_' + sname + '_coordinates', np.array(kpoint[2:]))
+                    parser.backend.addArrayValues('x_crystal_' + sname + '_coordinates', flt(kpoint[2:]))
                     parser.backend.closeSection('x_crystal_section_' + sname, gIndex)
             return
         return wrapper
@@ -1439,8 +1453,8 @@ class CrystalMainParser(MainHierarchicalParser):
                 if len(vs) != 6: return
                 real_lattice.append(vs[0:3])
                 reciprocal_lattice.append(vs[3:6])
-            parser.backend.addArrayValues('x_crystal_lattice_real', np.array(real_lattice))
-            parser.backend.addArrayValues('x_crystal_lattice_reciprocal', np.array(reciprocal_lattice))
+            parser.backend.addArrayValues('x_crystal_lattice_real', flt2(real_lattice))
+            parser.backend.addArrayValues('x_crystal_lattice_reciprocal', flt2(reciprocal_lattice))
             return
         return wrapper
         
@@ -1467,8 +1481,8 @@ class CrystalMainParser(MainHierarchicalParser):
             while True:
                 gIndex = parser.backend.openSection('x_crystal_section_neighbors_atom_distance')
                 parser.backend.addValue('x_crystal_neighbors_atom_distance_number_of_neighbors', n)
-                parser.backend.addValue('x_crystal_neighbors_atom_distance_ang', line[3])
-                parser.backend.addValue('x_crystal_neighbors_atom_distance_au', line[4])
+                parser.backend.addValue('x_crystal_neighbors_atom_distance_ang', float(line[3]))
+                parser.backend.addValue('x_crystal_neighbors_atom_distance_au', float(line[4]))
                 while n > 0:
                     ns = regx2.findall(textline)
                     left = len(ns)
@@ -1476,9 +1490,9 @@ class CrystalMainParser(MainHierarchicalParser):
                         raise Exception("Strange line adHoc_x_crystal_neighbors (3)")
                     for neighbor in ns:
                         gIndex2 = parser.backend.openSection('x_crystal_section_neighbors_atom_distance_neighbor');
-                        parser.backend.addValue('x_crystal_neighbors_atom_distance_neighbor_label', neighbor[0])
+                        parser.backend.addValue('x_crystal_neighbors_atom_distance_neighbor_label', int(neighbor[0]))
                         parser.backend.addValue('x_crystal_neighbors_atom_distance_neighbor_element', neighbor[1])
-                        parser.backend.addValue('x_crystal_neighbors_atom_distance_neighbor_cell', neighbor[2 : 2+dim])
+                        parser.backend.addArrayValues('x_crystal_neighbors_atom_distance_neighbor_cell', flt(neighbor[2 : 2+dim]))
                         parser.backend.closeSection('x_crystal_section_neighbors_atom_distance_neighbor', gIndex2)
                         n -= 1
                     textline = parser.fIn.readline()
@@ -1512,9 +1526,9 @@ class CrystalMainParser(MainHierarchicalParser):
                     break
                 for atom in line:
                     gIndex = parser.backend.openSection('x_crystal_section_frequency_atom')
-                    parser.backend.addValue('x_crystal_frequency_atom_label', atom[0])
+                    parser.backend.addValue('x_crystal_frequency_atom_label', int(atom[0]))
                     parser.backend.addValue('x_crystal_frequency_atom_element', atom[1])
-                    parser.backend.addValue('x_crystal_frequency_atom_mass', atom[2])
+                    parser.backend.addValue('x_crystal_frequency_atom_mass', float(atom[2]))
                     parser.backend.closeSection('x_crystal_section_frequency_atom', gIndex)
             return
         return wrapper
@@ -1531,12 +1545,12 @@ class CrystalMainParser(MainHierarchicalParser):
                 return
             v = regx_num.match(text)
             if v is not None:
-                parser.backend.addValue('x_crystal_frequency_gradients_op_symmops', v.group(1))
+                parser.backend.addValue('x_crystal_frequency_gradients_op_symmops', int(v.group(1)))
                 return
             v = regx_gen.match(text)
             if v is not None:
                 parser.backend.addValue('x_crystal_frequency_gradients_op_generated_from_line', v.group(1))
-                parser.backend.addValue('x_crystal_frequency_gradients_op_generated_by_symmop', v.group(2))
+                parser.backend.addValue('x_crystal_frequency_gradients_op_generated_by_symmop', int(v.group(2)))
                 return
             raise Exception("adHoc_x_crystal_section_frequency_gradients_op: Unable to handle text value" + text)
         return wrapper
@@ -1629,8 +1643,8 @@ class CrystalMainParser(MainHierarchicalParser):
             for i in range(0, n):
                 gIndex = parser.backend.openSection('x_crystal_section_vibrational_multip')
                 parser.backend.addValue('x_crystal_vibrational_multip_irrep_cla', irrep_cla[i])
-                parser.backend.addValue('x_crystal_vibrational_multip_multip', multip[i])
-                parser.backend.addValue('x_crystal_vibrational_multip_fu', fu[i])
+                parser.backend.addValue('x_crystal_vibrational_multip_multip', int(multip[i]))
+                parser.backend.addValue('x_crystal_vibrational_multip_fu', float(fu[i]))
                 parser.backend.closeSection('x_crystal_section_vibrational_multip', gIndex)
             return
         return wrapper
@@ -1678,7 +1692,7 @@ class CrystalMainParser(MainHierarchicalParser):
                 if line is None or len(line) != n:
                     raise Exception("adHoc_x_crystal_vibrational_modetensor strange(2)")
                 vs.append(line)
-            parser.backend.addArrayValues('x_crystal_vibrational_mode_tensor', np.array(vs))
+            parser.backend.addArrayValues('x_crystal_vibrational_mode_tensor', flt2(vs))
             return
         return wrapper
 
@@ -1694,7 +1708,7 @@ class CrystalMainParser(MainHierarchicalParser):
                 if line is None or len(line) != n:
                     raise Exception("adHoc_x_crystal_vibrational_modetensor strange(2)")
                 vs.append(line)
-            parser.backend.addArrayValues('x_crystal_vibrational_dielectric_tensor_' + meaning, np.array(vs))
+            parser.backend.addArrayValues('x_crystal_vibrational_dielectric_tensor_' + meaning, flt2(vs))
             return
         return wrapper
         
@@ -1728,7 +1742,7 @@ class CrystalMainParser(MainHierarchicalParser):
             if len is None or len(line) != 3+n*dim:
                 raise Exception('adHoc_x_crystal_irX_modes (' + type +'): strange(3)')
             gIndex = parser.backend.openSection('x_crystal_section_ir' + type + '_modes_atom')
-            parser.backend.addValue('x_crystal_ir' + type + '_modes_atom_label', line[0])
+            parser.backend.addValue('x_crystal_ir' + type + '_modes_atom_label', int(line[0]))
             parser.backend.addValue('x_crystal_ir' + type + '_modes_atom_element', line[1])
             tensors = []
             axislabels = line[2]
@@ -1755,7 +1769,7 @@ class CrystalMainParser(MainHierarchicalParser):
             for i in range(0,n):
                 gIndex2 = parser.backend.openSection('x_crystal_section_ir' + type + '_modes_atom_mode')
                 parser.backend.addArrayValues('x_crystal_ir' + type + '_modes_atom_mode_frequencies', np.array(frequencies[i*dim: (i+1)*dim]))
-                parser.backend.addArrayValues('x_crystal_ir' + type + '_modes_atom_mode_tensor', np.array(tensors[i]))
+                parser.backend.addArrayValues('x_crystal_ir' + type + '_modes_atom_mode_tensor', flt2(tensors[i]))
                 parser.backend.closeSection('x_crystal_section_ir' + type + '_modes_atom_mode', gIndex2)
             gIndex = parser.backend.closeSection('x_crystal_section_ir' + type + '_modes_atom', gIndex)
             return
@@ -1783,9 +1797,9 @@ class CrystalMainParser(MainHierarchicalParser):
                 lo_frequencies.append(line[0])
                 overlap.append(line[1:])
             gIndex = parser.backend.openSection('x_crystal_section_irlo_overlap')
-            parser.backend.addArrayValues('x_crystal_irlo_overlap_to', np.array(to_frequencies))
-            parser.backend.addArrayValues('x_crystal_irlo_overlap_lo', np.array(lo_frequencies))
-            parser.backend.addArrayValues('x_crystal_irlo_overlap_matrix', np.array(overlap))
+            parser.backend.addArrayValues('x_crystal_irlo_overlap_to', flt(to_frequencies))
+            parser.backend.addArrayValues('x_crystal_irlo_overlap_lo', flt(lo_frequencies))
+            parser.backend.addArrayValues('x_crystal_irlo_overlap_matrix', flt2(overlap))
             parser.backend.closeSection('x_crystal_section_irlo_overlap', gIndex)
             return
         return wrapper;
@@ -1798,8 +1812,8 @@ class CrystalMainParser(MainHierarchicalParser):
                 return
             for m in line:
                 gIndex = parser.backend.openSection('x_crystal_section_vibrational_modes_' + type)
-                parser.backend.addValue('x_crystal_vibrational_modes_' + type + '_temperature', m[0])
-                parser.backend.addValue('x_crystal_vibrational_modes_' + type + '_number',      m[1])
+                parser.backend.addValue('x_crystal_vibrational_modes_' + type + '_temperature', float(m[0]))
+                parser.backend.addValue('x_crystal_vibrational_modes_' + type + '_number',      int(m[1]))
                 parser.backend.addValue('x_crystal_vibrational_modes_' + type + '_irrep',       m[2])
                 parser.backend.closeSection('x_crystal_section_vibrational_modes_' + type, gIndex)
             return
@@ -1817,7 +1831,7 @@ class CrystalMainParser(MainHierarchicalParser):
                 if line is None or len(line) != n:
                     raise Exception("adHoc_x_crystal_properties_lattice: strange(2)")
                 matrix.append(line)
-            parser.backend.addArrayValues('x_crystal_properties_lattice_vectors', np.array(matrix))
+            parser.backend.addArrayValues('x_crystal_properties_lattice_vectors', flt2(matrix))
             return
         return wrapper
      
