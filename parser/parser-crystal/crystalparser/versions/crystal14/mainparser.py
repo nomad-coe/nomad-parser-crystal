@@ -929,12 +929,6 @@ class CrystalMainParser(MainHierarchicalParser):
     #===========================================================================
     # The functions that trigger when sections are closed
 
-    def onClose_x_crystal_section_input(self, backend, gIndex, section):
-        pass
-
-    def onClose_section_method(self, backend, gIndex, section):
-        pass
-
     def onClose_x_crystal_section_prim_atom(self, backend, gIndex, section):
         v1 = section['x_crystal_prim_atom_value1']
         v2 = section['x_crystal_prim_atom_value2']
