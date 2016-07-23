@@ -1555,7 +1555,7 @@ class CrystalMainParser(MainHierarchicalParser):
             textline = parser.fIn.readline()
             v = regx.findall(textline)
             if v is not None and len(v) >= 1:
-                parser.backend.addArrayValues('x_crystal_' + clas + '_atomic_charges', np.array(v))
+                parser.backend.addArrayValues('x_crystal_' + clas + '_atomic_charges', flt(v))
             return
         return wrapper
 
@@ -1618,7 +1618,7 @@ class CrystalMainParser(MainHierarchicalParser):
                 if int(line[0]) != i:
                     raise Exception("adHoc_x_crystal_forces_born_atom_tensor: strange (3)" + str(line))
                 vs.append(line[1:n+1])
-            parser.backend.addArrayValues('x_crystal_forces_born_atom_tensor', np.array(vs))
+            parser.backend.addArrayValues('x_crystal_forces_born_atom_tensor', flt2(vs))
             return
         return wrapper
     
