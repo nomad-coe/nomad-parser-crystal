@@ -1,0 +1,38 @@
+ke 3.8.2016 12.30.14 +0300
+Input data Na2O.f25
+executable /home/pupu/crystal/crgra2006/Linux-pgf/maps06.x
+The default Control file /home/pupu/crystal/crgra2006/maps.con is used 
+FORTRAN STOP
+ Map program
+ Written by Mauro Causa, Universita di Torino
+Adapted by Ales ZUPAN, IJS, Slovenia 
+
+
+ END OF DATA ON FORTRAN UNIT 25 -  0 DATA MATRICES
+metafile fort.18 not found or empty
+fort.25 already existing - warning
+the script executes a link between $1.f25 and fort.25
+Input data Na2O.f25, control data Na2O.doss,
+control file /home/pupu/crystal/src/Na2O.doss is used
+ DOSS program
+ Extracting file
+ DOSS DATA -  1 PROJECTION(S)
+ DOSS MINIMUM AND MAXIMUM VALUE  0.0000E+00  1.1587E+03
+ Creating metafile
+ 0  DOSS      1   59    0    0    0    0
+ Postscript driver
+ Written by Ales Zupan, IJS, Slovenia, Email ales.zupan@ijs.ac.mail.yu
+ *** Plotting of atoms by B. Civalleri ***
+
+ Creating Postscript file
+postscript file Na2O_doss06.ps
+rm: No match.
+[1] 23928
+doss postscript file /home/pupu/crystal/src/Na2O_doss06.ps
+Input data Na2O.f25, control data Na2O.band,
+-rw-r--r-- 1 pupu pupu 6 elo    3 12:20 Na2O.band
+control file Na2O.band is used
+PGFIO-F-217/list-directed read/unit=5/attempt to read past end of file.
+ File name = stdin     formatted, sequential access   record = 2
+ In source file band06.f, at line number 150
+metafile fort.18 not found or empty

@@ -1,0 +1,15 @@
+setup.py
+crystalparser/__init__.py
+crystalparser/parser_crystal.py
+crystalparser/scalainterface.py
+crystalparser/setup_paths.py
+crystalparser.egg-info/PKG-INFO
+crystalparser.egg-info/SOURCES.txt
+crystalparser.egg-info/dependency_links.txt
+crystalparser.egg-info/not-zip-safe
+crystalparser.egg-info/requires.txt
+crystalparser.egg-info/top_level.txt
+crystalparser/versions/__init__.py
+crystalparser/versions/versionsetup.py
+crystalparser/versions/crystal14/__init__.py
+crystalparser/versions/crystal14/mainparser.py
