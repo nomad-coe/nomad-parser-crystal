@@ -10,7 +10,7 @@ def get_main_parser(version_id):
 
     # Currently the version id is a pure integer, so it can directly be mapped
     # into a package name.
-    base = "crystalparser.parsing.versions.crystal{}.".format(version_id)
+    base = "crystalparser.versions.crystal{}.".format(version_id)
     try:
         main_parser = importlib.import_module(base + "mainparser").CrystalMainParser
     except ImportError:

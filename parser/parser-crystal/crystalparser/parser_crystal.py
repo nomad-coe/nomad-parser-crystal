@@ -15,8 +15,8 @@ class CrystalParser(ParserInterface):
     After the implementation has been setup, you can parse the files with
     parse().
     """
-    def __init__(self, main_file, metainfo_to_keep=None, backend=None, default_units=None, metainfo_units=None):
-        super(CrystalParser, self).__init__(main_file, metainfo_to_keep, backend, default_units, metainfo_units)
+    def __init__(self, main_file, metainfo_to_keep=None, backend=None, default_units=None, metainfo_units=None, debug=None, log_level=None):
+        super(CrystalParser, self).__init__(main_file, metainfo_to_keep, backend, default_units, metainfo_units, debug, log_level)
 
     def setup_version(self):
         """Setups the version by looking at the output file and the version
@@ -52,7 +52,7 @@ class CrystalParser(ParserInterface):
                         continue
                     version_major = result3.group(1)
                     version_minor = result4.group(1).replace('.', '')
-                    version_id = version_major + "_" + version_minor;
+                    version_id = version_major + "_" + version_minor
                     break
         if not version_id:
             logger.error("Could not find a version specification from the given main file.")
