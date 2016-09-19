@@ -15,7 +15,7 @@ class CrystalParser(ParserInterface):
     After the implementation has been setup, you can parse the files with
     parse().
     """
-    def __init__(self, main_file, metainfo_to_keep=None, backend=None, default_units=None, metainfo_units=None, debug=None, log_level=None):
+    def __init__(self, main_file, metainfo_to_keep=None, backend=None, default_units=None, metainfo_units=None, debug=None, log_level=logging.ERROR):
         super(CrystalParser, self).__init__(main_file, metainfo_to_keep, backend, default_units, metainfo_units, debug, log_level)
 
     def setup_version(self):
