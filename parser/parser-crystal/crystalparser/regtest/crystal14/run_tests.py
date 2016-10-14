@@ -728,7 +728,7 @@ class TestSinglePointDFT(unittest.TestCase):
 #===============================================================================
 if __name__ == '__main__':
     suites = []
-    # suites.append(unittest.TestLoader().loadTestsFromTestCase(TestSinglePointHF))
+    suites.append(unittest.TestLoader().loadTestsFromTestCase(TestSinglePointHF))
     suites.append(unittest.TestLoader().loadTestsFromTestCase(TestSinglePointDFT))
 
     alltests = unittest.TestSuite(suites)

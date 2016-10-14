@@ -30,14 +30,13 @@ class InputMatcher(SM):
             defLine=0,
             defFile='',
             coverageIgnore=False,  # mark line as ignored in coverage analysis
-            endAction=None,  # A function that is called when this SimpleMatcher finishes
             onClose=None,   # A dictionary of onClose callbacks that are specific to this SimpleMatcher
             onOpen=None,   # A dictionary of onOpen callbacks that are specific to this SimpleMatcher
-            startReTransform=None,  # A callback function that is called with the groups that were matched from the startReStr.
+            startReAction=None,  # A callback function that is called with the groups that were matched from the startReStr.
             ):
 
         if name != "":
-            startReStr = "(?P<{}_{}>{})".format(META_PREFIX, name, startReStr)
+            startReStr = r"(?i)(?P<{}_{}>{})".format(META_PREFIX, name, startReStr)
 
         for i_section, section in enumerate(sections):
             if section:
@@ -65,10 +64,9 @@ class InputMatcher(SM):
             defLine,
             defFile,
             coverageIgnore,
-            endAction,
             onClose,
             onOpen,
-            startReTransform,
+            startReAction,
         )
 
 
@@ -94,6 +92,7 @@ class CrystalInputParser(object):
                 IM("OPTGEOM|FREQCALC|ANHARM", name="calculation_type"),
                 IM("DFT",
                     sections=["dft"],
+                    subFlags=SM.SubFlags.Unordered,
                     subMatchers=[
                         IM("SPIN"),
                         IM("EXCHANGE",
@@ -106,7 +105,7 @@ class CrystalInputParser(object):
                                 IM("PZ|VBH|VWN|LYP|P86|PBE|PBESOL|PWGGA|PWLSD|WL", name="dft_correlation")
                             ]
                         ),
-                        IM("SVWN|BLYP|PBEXC|PBESOLXC|SOGGAXC|B3PW|B3LYP|PBE0|PBESOL0|B1WC|WCILYP|B97H|PBE0-13|HYBRID|NONLOCAL|HSE06|HSESOL|HISS|RSHXLDA|wB97|wB97X|LC-wPBE|LC-wPBESOL|LC-wBLYP|M06L|M05|M052x|M06|M062X|M06HF|B2PLYP|B2GPPLYP|mPW2PLYP|DHYBRID", name="dft_xc_shortcut")
+                        IM("SVWN|BLYP|PBEXC|PBESOLXC|SOGGAXC|B3PW|B3LYP|PBE0|PBESOL0|B1WC|WCILYP|B97H|PBE0-13|HYBRID|NONLOCAL|HSE06|HSESOL|HISS|RSHXLDA|wB97|wB97X|LC-WPBE|LC-WPBESOL|LC-WBLYP|M05-2X|M05|M062X|M06HF|M06L|M06|B2PLYP|B2GPPLYP|mPW2PLYP|DHYBRID", name="dft_xc_shortcut")
                     ]
                 ),
             ]
@@ -122,9 +121,14 @@ class CrystalInputParser(object):
 
         # Handle the XC's defined with single shortcut
         if shortcut:
+            shortcut = shortcut.upper()
             shortcut_map = {
                 "PBE0": "HYB_GGA_XC_PBEH",
                 "B3LYP": "HYB_GGA_XC_B3LYP",
+                "HSE06": "HYB_GGA_XC_HSE06",
+                "M06": "HYB_MGGA_XC_M06",
+                "M05-2X": "HYB_MGGA_XC_M05_2X",
+                "LC-WPBE": "HYB_GGA_XC_LRC_WPBE",
             }
             norm_xc = shortcut_map.get(shortcut)
             if norm_xc:
@@ -132,9 +136,13 @@ class CrystalInputParser(object):
 
         # Handle the exchange part
         if exchange:
+            exchange = exchange.upper()
             exchange_map = {
                 "PBE": "GGA_X_PBE",
                 "PBESOL": "GGA_X_PBE_SOL",
+                "BECKE": "GGA_X_B88",
+                "LDA": "LDA_X",
+                "PWGGA": "GGA_X_PW91",
             }
             norm_x = exchange_map.get(exchange)
             if norm_x:
@@ -142,9 +150,13 @@ class CrystalInputParser(object):
 
         # Handle the correlation part
         if correlation:
+            correlation = correlation.upper()
             correlation_map = {
                 "PBE": "GGA_C_PBE",
                 "PBESOL": "GGA_C_PBE_SOL",
+                "PZ": "LDA_C_PZ",
+                "WFN": "LDA_C_VWN",
+                "PWGGA": "GGA_C_PW91",
             }
             norm_c = correlation_map.get(correlation)
             if norm_c:
@@ -164,7 +176,7 @@ class CrystalInputParser(object):
             print(exchange)
             print(correlation)
 
-        backend.addValue("XC_functional", "_".join(sorted(xc_list)))
+        backend.addValue("XC_functional", "+".join(sorted(xc_summary)))
 
     def debug(self):
         print("DEBUG")

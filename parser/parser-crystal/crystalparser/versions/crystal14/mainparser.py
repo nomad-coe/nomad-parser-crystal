@@ -183,7 +183,7 @@ class CrystalMainParser(MainHierarchicalParser):
 
                 SM( " MAX NUMBER OF SCF CYCLES\s+(?P<scf_max_iteration>{})".format(self.regexs.int)),
                 SM( " WEIGHT OF F\(I\) IN F\(I\+1\)\s+(?P<x_crystal_info_weight_previous>{})\%\s+CONVERGENCE ON ENERGY\s+({})".format(self.regexs.int, self.regex_crystal_float),
-                    startReTransform=self.transform_scf_convergence
+                    startReAction=self.transform_scf_convergence
                 ),
                 SM( " SHRINK\. FACT\.\(MONKH\.\)\s+" + self.fsk('x_crystal_info_shrink_value', 3) + "\s+.*$"),
                 SM( " SHRINKING FACTOR\(GILAT NET\)\s+(?P<x_crystal_info_shrink_gilat>{})\s+.*$".format(self.regex_f)),
@@ -200,7 +200,7 @@ class CrystalMainParser(MainHierarchicalParser):
         ])
         matcher_infoeigen = SM( "^\s*DISK SPACE FOR EIGENVECTORS\s*\(FTN\s*(?P<x_crystal_info_eigenvectors_disk_space_ftn>\d+)\s*\)\s+(?P<x_crystal_info_eigenvectors_disk_space_reals>\d+)\s+REALS\s*$",
             sections=['x_crystal_section_info'], subMatchers=[
-                SM( "^\s*SYMMETRY ADAPTION OF THE BLOCH FUNCTIONS (ENABLED|DISABLED)\s*$", startReTransform=self.transform_symmetry_adaption),
+                SM( "^\s*SYMMETRY ADAPTION OF THE BLOCH FUNCTIONS (ENABLED|DISABLED)\s*$", startReAction=self.transform_symmetry_adaption),
                 SM( "^\s*MATRIX SIZE:\s*P\(G\)\s*(?P<x_crystal_info_matrix_size_p>\d+),\s*F\(G\)\s*(?P<x_crystal_info_matrix_size_f>\d+),\s*P\(G\)\s*IRR\s*(?P<x_crystal_info_irr_p>\d+),\s*F\(G\)\s*IRR\s*(?P<x_crystal_info_irr_f>\d+)\s*$"),
                 SM( "^\s*MAX G-VECTOR INDEX FOR 1- AND 2-ELECTRON INTEGRALS\s+(?P<x_crystal_info_max_g_vector_index>\d+)\s*$"),
                 SM( "^\s*T+\s+INPUT\s+TELAPSE\s+(?P<x_crystal_info_input_telapse>{0})\s+TCPU\s+(?P<x_crystal_info_input_tcpu>{0})\s*$".format(self.regex_f))
@@ -302,6 +302,7 @@ class CrystalMainParser(MainHierarchicalParser):
                     fixedStartValues={"single_configuration_calculation_converged": True}
                 ),
                 SM(" TOTAL ENERGY\(DFT\)\(AU\)\(\s+{0}\)\s+(?P<energy_total__hartree>{1}) DE{1} tester\s+{1}".format(self.regexs.int, self.regexs.float)),
+                SM(" TOTAL ENERGY\(HF\)\(AU\)\(\s+{0}\)\s+(?P<energy_total__hartree>{1}) DE {1} tst {1} PX {1}".format(self.regexs.int, self.regexs.float)),
             ],
         )
 
@@ -488,64 +489,118 @@ class CrystalMainParser(MainHierarchicalParser):
                 SM( "^\s*CARTESIAN FORCES IN HARTREE\/BOHR \(ANALYTICAL\)\s*$", subMatchers=[matcher_forces2])
         ])
 
-        matcher_crystal = SM( "^\s*CRYSTAL\s+CALCULATION\s*$", subMatchers=[
+        matcher_crystal = SM( "^\s*CRYSTAL\s+CALCULATION\s*$",
+            subMatchers=[
                 SM( "^\s*CRYSTAL\s+FAMILY\s*:\s*(?P<x_crystal_family>.*?\S.*?)\s*$"),
                 SM( "^\s*CRYSTAL\s+CLASS\s+\(?\s*(?P<x_crystal_class_ref>.*?\S.*?)\s*\)?\s*:\s*(?P<x_crystal_class>.*?\S.*?)\s*$"),
                 SM( "^\s*SPACE\s+GROUP\s+\(\s*(?P<x_crystal_spacegroup_class>\S.*?\S)\s*\)\s*:\s*(?P<x_crystal_spacegroup>.*?\S.*?)\s*$", otherMetaInfo=['spacegroup_3D_number'], adHoc=self.adHoc_x_crystal_spacegroup()),
-                SM( "^\s*LATTICE\s+PARAMETERS\s+\(?\s*(?P<x_crystal_conventional_cell_units>.*?\S.*?)\s*\)?\s*\-\s*CONVENTIONAL\s+CELL\s*$", subMatchers=[
-                    SM( "^\s*A\s+B\s+C\s+ALPHA\s+BETA\s+GAMMA\s*$", subFlags=SM.SubFlags.Unordered, subMatchers=self.appendNumberMatchers([], 'x_crystal_conventional_cell', 'value', 6, 6)),
-        ])])
+                SM( "^\s*LATTICE\s+PARAMETERS\s+\(?\s*(?P<x_crystal_conventional_cell_units>.*?\S.*?)\s*\)?\s*\-\s*CONVENTIONAL\s+CELL\s*$",
+                    subMatchers=[
+                        SM( "^\s*A\s+B\s+C\s+ALPHA\s+BETA\s+GAMMA\s*$",
+                            subFlags=SM.SubFlags.Unordered,
+                            subMatchers=self.appendNumberMatchers([], 'x_crystal_conventional_cell', 'value', 6, 6)
+                        ),
+                    ]
+                )
+            ]
+        )
 
         matcher_molecular = SM("^\s*MOLECULAR\s+CALCULATION\s*$", subMatchers=[
                 SM( "\s*POINT\s+GROUP\s+N\.\s+" + self.dk('x_crystal_pointgroup_number') + "\s*:\s*" + self.dk('x_crystal_pointgroup_number2') + "\s*OR\s*(?P<x_crystal_pointgroup>[A-Z0-9][A-Z0-9 ]*[A-Z0-9])\s*$"),
                 SM( "\s*CORRESPONDING SPACE GROUP\s*:\s*(?P<x_crystal_pointgroup_corresponding_spacegroup>[A-Z0-9][A-Z0-9 ]*[A-Z0-9])\s*$"),
         ])
 
-        # matcher_system = SM( "^\s*(?:(?:CRYSTAL|MOLECULAR|SLAB|POLYMER|HELIX|EXTERNAL|DLVINPUT)\s+CALCULATION)|(?:GEOMETRY INPUT FROM EXTERNAL FILE)\s*$",
-        matcher_system = SM( " GEOMETRY INPUT FROM EXTERNAL FILE \(FORTRAN UNIT 34\)",
+        matcher_system = SM( "^\s*(?:(?:CRYSTAL|MOLECULAR|SLAB|POLYMER|HELIX|EXTERNAL|DLVINPUT)\s+CALCULATION)|(?: GEOMETRY INPUT FROM EXTERNAL FILE)",
             forwardMatch=True,
-            endAction=self.debug,
             sections=['section_system', 'x_crystal_section_conventional_cell'],
             subMatchers=[
                 matcher_crystal,
                 matcher_molecular,
                 SM(" GEOMETRY INPUT FROM EXTERNAL FILE",
                     subMatchers=[
-                        SM(" 1D - POLYMER"),
+                        SM(" 1D - POLYMER", startReAction=self.action_push1D),
                     ]
                 ),
-                SM( "^\s*NUMBER\s+OF\s+IRREDUCIBLE\s+ATOMS\s+IN\s+THE\s+CONVENTIONAL\s+CELL\s*:\s*(?P<x_crystal_conventional_cell_number_of_atoms>\d+)\s*$", subMatchers=[
-                        SM( "^\s*INPUT COORDINATES\s*$", subMatchers=[
-                            SM( "^\s*ATOM\s+AT\.\s+N\.\s+COORDINATES\s*$",
-                                subFlags=SM.SubFlags.Unordered,
-                                subMatchers=self.appendNumberMatchers([],
-                                'x_crystal_conventional_cell', 'value', 3, 5))
-                ])]),
-                SM( "^\s*LATTICE\s+PARAMETERS\s+\(?\s*(?P<x_crystal_primitive_cell_units>.*?\S.*?)\s*\)?\s*\-\s*PRIMITIVE\s+CELL\s*$",
-                    sections=['x_crystal_section_primitive_cell'], subMatchers=[
-                        SM( "^\s*A\s+B\s+C\s+ALPHA\s+BETA\s+GAMMA\s+VOLUME\s*$", subFlags = SM.SubFlags.Unordered, subMatchers=self.appendNumberMatchers([], 'x_crystal_primitive_cell', 'value', 7, 7))
-                ]),
-                SM( "^\s*COORDINATES\s+OF\s+THE\s+EQUIVALENT\s+ATOMS\s+\(\s*(?P<x_crystal_primitive_cell_units_atom>.*?\S.*?)\s*\)\s*$", sections=['x_crystal_section_primitive_cell'], subMatchers=[
-                        SM( "^\s*N\.\s+ATOM\s+EQUIV\s+AT\.\s+N\.\s+X\s+Y\s+Z\s*$", subFlags = SM.SubFlags.Unordered, subMatchers=[
-                            SM( ("^\s*(?P<x_crystal_primitive_cell_atom_number>\d+)\s+(?P<x_crystal_primitive_cell_atom_label>\d+)\s+(?P<x_crystal_primitive_cell_atom_number_of_equivalents>\d+)\s+" +
-                                "(?P<x_crystal_primitive_cell_atom_z>\d+)\s+(?P<x_crystal_primitive_cell_atom_element>\S+)\s+" +
-                                "(?P<x_crystal_primitive_cell_atom_value1>{0})\s+(?P<x_crystal_primitive_cell_atom_value2>{0})\s+(?P<x_crystal_primitive_cell_atom_value3>{0})\s*$").format(self.regex_f),
-                                sections=['x_crystal_section_primitive_cell_atom'],
-                                repeats=True,
-                                adHoc=self.adHoc_x_crystal_primitive_cell_atom(3))
-                        ])
-                ]),
-                SM( "^\s*NUMBER\s+OF\s+SYMMETRY\s+OPERATORS\s*:\s*(?P<x_crystal_number_of_symmops>\d+)\s*$",
+                SM( "^\s*NUMBER\s+OF\s+IRREDUCIBLE\s+ATOMS\s+IN\s+THE\s+CONVENTIONAL\s+CELL\s*:\s*(?P<x_crystal_conventional_cell_number_of_atoms>\d+)\s*$",
                     subMatchers=[
-                        SM( "^\s*GEOMETRY\s+NOW\s+FULLY\s+CONSISTENT\s+WITH\s+THE\s+GROUP\s*$",
-                            adHoc=self.adHoc_x_crystal_geometry_consistent(True)
+                        SM( "^\s*INPUT COORDINATES\s*$",
+                            subMatchers=[
+                                SM( "^\s*ATOM\s+AT\.\s+N\.\s+COORDINATES\s*$",
+                                    subFlags=SM.SubFlags.Unordered,
+                                    subMatchers=self.appendNumberMatchers([],
+                                    'x_crystal_conventional_cell', 'value', 3, 5)
+                                )
+                            ]
                         )
                     ]
                 ),
-                SM( "^\s*INFORMATION\s+\*+\s+INPFREQ\s+\*+\s+DIELECTRIC\s+TENSOR\s+INPUT\s*$",
-                    adHoc=self.adHoc_x_crystal_dielectric_tensor()
+                SM( "^\s*LATTICE\s+PARAMETERS\s+\(?\s*(?P<x_crystal_primitive_cell_units>.*?\S.*?)\s*\)?\s*\-\s*PRIMITIVE\s+CELL\s*$",
+                    sections=['x_crystal_section_primitive_cell'],
+                    subMatchers=[
+                        SM( "^\s*A\s+B\s+C\s+ALPHA\s+BETA\s+GAMMA\s+VOLUME\s*$",
+                            subFlags=SM.SubFlags.Unordered,
+                            subMatchers=self.appendNumberMatchers([], 'x_crystal_primitive_cell', 'value', 7, 7)
+                        )
+                    ]
                 ),
-                SM(" ATOMIC POSITIONS OPTIMIZATION CONTROL",
+                SM( "^\s*COORDINATES\s+OF\s+THE\s+EQUIVALENT\s+ATOMS\s+\(\s*(?P<x_crystal_primitive_cell_units_atom>.*?\S.*?)\s*\)\s*$",
+                    sections=['x_crystal_section_primitive_cell'],
+                    subMatchers=[
+                        SM( "^\s*N\.\s+ATOM\s+EQUIV\s+AT\.\s+N\.\s+X\s+Y\s+Z\s*$",
+                            subFlags=SM.SubFlags.Unordered,
+                            subMatchers=[
+                                SM( ("^\s*(?P<x_crystal_primitive_cell_atom_number>\d+)\s+(?P<x_crystal_primitive_cell_atom_label>\d+)\s+(?P<x_crystal_primitive_cell_atom_number_of_equivalents>\d+)\s+" +
+                                    "(?P<x_crystal_primitive_cell_atom_z>\d+)\s+(?P<x_crystal_primitive_cell_atom_element>\S+)\s+" +
+                                    "(?P<x_crystal_primitive_cell_atom_value1>{0})\s+(?P<x_crystal_primitive_cell_atom_value2>{0})\s+(?P<x_crystal_primitive_cell_atom_value3>{0})\s*$").format(self.regex_f),
+                                    sections=['x_crystal_section_primitive_cell_atom'],
+                                    repeats=True,
+                                    adHoc=self.adHoc_x_crystal_primitive_cell_atom(3))
+                            ]
+                        )
+                    ]
+                ),
+                SM( " NUMBER OF SYMMETRY OPERATORS\s+:\s+(?P<x_crystal_number_of_symmops>\d+)",
+                    subMatchers=[
+                        SM( " GEOMETRY NOW FULLY CONSISTENT WITH THE GROUP",
+                            fixedStartValues={"x_crystal_geometry_consistent": True}
+                        )
+                    ]
+                ),
+                # SM( "^\s*INFORMATION\s+\*+\s+INPFREQ\s+\*+\s+DIELECTRIC\s+TENSOR\s+INPUT\s*$",
+                    # adHoc=self.adHoc_x_crystal_dielectric_tensor()
+                # ),
+                SM(re.escape("  * CELL ROTATION "),
+                    subMatchers=[
+                        SM(" DIRECT-LATTICE FUNDAMENTAL VECTORS"),
+                        SM(" NEW FUNDAMENTAL DIRECT-LATTICE VECTORS B1,B2,B3"),
+                        SM(" LATTICE PARAMETERS  \(ANGSTROM  AND DEGREES\)",
+                            subMatchers=[
+                                SM("        A           B           C        ALPHA        BETA       GAMMA")
+                            ]
+                        ),
+                        SM(" NUMBER OF PRIMITIVE CELLS CONTAINED IN THE NEW FUNDAMENTAL CELL"),
+                        SM(" NEW FUNDAMENTAL DIRECT-LATTICE VECTORS B1,B2,B3"),
+                        SM(" VOLUME OF THE 3D CELL"),
+                        SM(" AREA OF THE 2D CELL"),
+                        SM(" B3 MODULUS"),
+                        SM(" B3 Z PROJECTION"),
+                        SM(" B3 X-Y PROJECTION"),
+                        SM(" UNIT CELL ATOM COORDINATES :"),
+                        SM(" ATOMS CLASSIFIED ACCORDING TO THE Z COORDINATE :"),
+                        SM(" ATOMS CLASSIFIED ACCORDING TO THE Z COORDINATE :"),
+                        SM(re.escape(" *************************** CELL ROTATION COMPLETE ***************************"))
+                    ],
+                ),
+                SM(re.escape(" * TWO DIMENSIONAL SLAB PARALLEL TO THE SELECTED PLANE"),
+                ),
+                SM(re.escape(" ******************************* SLAB GENERATED *******************************"),
+                    subMatchers=[
+                        SM(" LATTICE PARAMETERS \(ANGSTROMS AND DEGREES\) - BOHR"),
+                        SM(" PRIMITIVE CELL"),
+                        SM("         A              B              C           ALPHA      BETA       GAMMA")
+                    ]
+                ),
+                SM(" (?:COMBINED CELL\/ATOM OPTIMIZATION CONTROL)|(?:ATOMIC POSITIONS OPTIMIZATION CONTROL)",
                     subMatchers=[
                         SM( "INITIAL TRUST RADIUS\s+{0} MAXIMUM TRUST RADIUS\s+{0}".format(self.regexs.float)),
                         SM( "MAXIMUM GRADIENT COMPONENT\s+{0} MAXIMUM DISPLACEMENT COMPONENT\s+{0}".format(self.regexs.float)),
@@ -559,11 +614,11 @@ class CrystalMainParser(MainHierarchicalParser):
                 ),
                 SM( " ATOMS IN THE ASYMMETRIC UNIT\s+{0} - ATOMS IN THE UNIT CELL:\s+{0}".format(self.regexs.int)),
                 SM( " GEOMETRY FOR WAVE FUNCTION - DIMENSIONALITY OF THE SYSTEM\s+(?P<x_crystal_dimensionality>\d)",
-                    startReTransform=self.transform_periodicity,
+                    startReAction=self.transform_periodicity,
                     adHoc=self.adHoc_x_crystal_dimensionality,
                     subMatchers=[
                         SM( "\s*\(\s*NON PERIODIC DIRECTION: LATTICE PARAMETER FORMALLY SET TO\s*({})\s*\)".format(self.regexs.float),
-                            startReTransform=self.transform_nonperiodic_tag
+                            startReAction=self.transform_nonperiodic_tag
                         ),
                     ]
                 ),
@@ -587,17 +642,6 @@ class CrystalMainParser(MainHierarchicalParser):
                         )
                     ]
                 ),
-                # SM( "^\s*ATOMS\s+IN\s+THE\s+ASYMMETRIC\s+UNIT\s+(?P<x_crystal_atoms_in_asymmetric_unit>\d+)\s*\-\s*ATOMS\s+IN\s+THE\s+UNIT\s+CELL\s*:\s*(?P<x_crystal_atoms_in_unit_cell>\d+)\s*$"),
-                # SM( "^\s*ATOM\s+X/?\(?([A-Z]+)\)?\s+Y/?\(?([A-Z]+)\)?\s+Z/?\(?([A-Z]+)\)?\s*$",
-                    # startReTransform=self.transform_periodicity_prim,
-                    # sections=['x_crystal_section_prim'],
-                    # subMatchers=[
-                        # SM( ("^\s*(?P<x_crystal_prim_atom_label>\d+)\s+(?P<x_crystal_prim_atom_tag>\S+)\s+(?P<x_crystal_prim_atom_z>\d+)\s+(?P<x_crystal_prim_atom_element>\S+)\s+" +
-                            # "(?P<x_crystal_prim_atom_value1>{0})\s+(?P<x_crystal_prim_atom_value2>{0})\s+(?P<x_crystal_prim_atom_value3>{0})\s*$").format(self.regex_f),
-                            # sections=['x_crystal_section_prim_atom'],
-                            # repeats=True)
-                    # ]
-                # ),
                 SM( "^\s*TRANSFORMATION MATRIX PRIMITIVE-CRYSTALLOGRAPHIC CELL\s*$", sections=['x_crystal_section_cell'], adHoc=self.adHoc_x_crystal_cell_transformation_matrix(),
                     subMatchers=[
                         SM( "^\s*CRYSTALLOGRAPHIC CELL\s*\(VOLUME\=\s*(?P<x_crystal_cell_volume>{0})\s*\)\s*$".format(self.regex_f)),
@@ -647,7 +691,7 @@ class CrystalMainParser(MainHierarchicalParser):
                                         SM( "^\s*(?P<x_crystal_basis_set_atom_shell_omin>\d+)\s*(?P<x_crystal_basis_set_atom_shell_type>\S+)\s*$",
                                             sections=['x_crystal_section_basis_set_atom_shell'],
                                             repeats=False,
-                                            startReTransform=self.transform_basis_set_shell,
+                                            startReAction=self.transform_basis_set_shell,
                                             subMatchers=[
                                                 SM( regex_gaussian_primitive,
                                                     repeats=True,
@@ -656,7 +700,7 @@ class CrystalMainParser(MainHierarchicalParser):
                                         ),
                                         SM( "^\s*(?P<x_crystal_basis_set_atom_shell_omin>\d+)\s*-\s*(?P<x_crystal_basis_set_atom_shell_omax>\d+)\s*(?P<x_crystal_basis_set_atom_shell_type>\S+)\s*$",
                                             sections=['x_crystal_section_basis_set_atom_shell'],
-                                            startReTransform=self.transform_basis_set_shell,
+                                            startReAction=self.transform_basis_set_shell,
                                             repeats=True,
                                             subMatchers=[
                                                 SM( regex_gaussian_primitive,
@@ -1255,11 +1299,11 @@ class CrystalMainParser(MainHierarchicalParser):
             return
         return wrapper
 
-    def adHoc_x_crystal_geometry_consistent(self, v):
-        def wrapper(parser):
-            parser.backend.addValue('x_crystal_geometry_consistent', v)
-            return
-        return wrapper
+    # def adHoc_x_crystal_geometry_consistent(self, v):
+        # def wrapper(parser):
+            # parser.backend.addValue('x_crystal_geometry_consistent', v)
+            # return
+        # return wrapper
 
     def adHoc_x_crystal_spacegroup(self):
         def wrapper(parser):
@@ -1402,7 +1446,7 @@ class CrystalMainParser(MainHierarchicalParser):
         parser.backend.addValue("number_of_atoms", len(labels))
 
     def adHoc_atom_positions2(self, parser):
-        line_regex = re.compile("\s+{0}\s+[TF]\s+{0}\s+({1})\s+({2})\s+({2})\s+({2})\s+{2}".format(self.regexs.int, self.regexs.word, self.regexs.float))
+        line_regex = re.compile("\s+{0}\s+[TF]\s+{0}\s+({1})\s+({2})\s+({2})\s+({2})".format(self.regexs.int, self.regexs.word, self.regexs.float))
         labels = []
         coordinates = []
         while True:
@@ -1913,7 +1957,7 @@ class CrystalMainParser(MainHierarchicalParser):
         return wrapper
 
     #===========================================================================
-    # startReTransforms
+    # startReActions
     def transform_convergence_on_deltap(self, backend, groups):
         limit = int(groups[0].replace(" ", ""))
         limit = pow(10, limit)
@@ -1964,9 +2008,12 @@ class CrystalMainParser(MainHierarchicalParser):
         shell = groups[-1]
         self.method['gaussian_shell'] = shell
 
+    def action_push1D(self, backend, groups):
+        backend.addArrayValues("configuration_periodic_dimensions", np.array([True, False, False]))
+
     #===========================================================================
     # Misc
-    def debug(self):
+    def debug(self, backend, groups):
         print("DEBUG")
 
     #===========================================================================
