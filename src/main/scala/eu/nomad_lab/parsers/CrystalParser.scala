@@ -32,10 +32,10 @@ object CrystalParser extends SimpleExternalParserGenerator(
   resList = Seq(
     "parser-crystal/crystalparser/versions/crystal14/__init__.py",
     "parser-crystal/crystalparser/versions/crystal14/mainparser.py",
+    "parser-crystal/crystalparser/versions/crystal14/inputparser.py",
     "parser-crystal/crystalparser/versions/__init__.py",
-    "parser-crystal/crystalparser/versions/versionsetup.py",
     "parser-crystal/crystalparser/__init__.py",
-    "parser-crystal/crystalparser/parser_crystal.py",
+    "parser-crystal/crystalparser/parser.py",
     "parser-crystal/crystalparser/setup_paths.py",
     "parser-crystal/crystalparser/scalainterface.py",
     "nomad_meta_info/public.nomadmetainfo.json",
