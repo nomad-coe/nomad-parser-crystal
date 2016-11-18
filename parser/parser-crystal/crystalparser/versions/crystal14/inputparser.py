@@ -79,7 +79,7 @@ class CrystalInputParser(object):
         on_close = {}
         for attr, callback in extractOnCloseTriggers(self).items():
             on_close[attr] = [callback]
-        mainparser.onClose.update(on_close)
+        mainparser.on_close.update(on_close)
 
         IM = InputMatcher
 
