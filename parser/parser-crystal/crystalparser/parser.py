@@ -1,4 +1,3 @@
-import os
 import re
 import logging
 import importlib
@@ -6,7 +5,6 @@ from nomadcore.baseclasses import ParserInterface
 logger = logging.getLogger(__name__)
 
 
-#===============================================================================
 class CrystalParser(ParserInterface):
     """This class handles the initial setup before any parsing can happen. It
     determines which version of the software was used to generate the output
@@ -15,8 +13,8 @@ class CrystalParser(ParserInterface):
     After the implementation has been setup, you can parse the files with
     parse().
     """
-    def __init__(self, main_file, metainfo_to_keep=None, backend=None, default_units=None, metainfo_units=None, debug=None, log_level=logging.ERROR):
-        super(CrystalParser, self).__init__(main_file, metainfo_to_keep, backend, default_units, metainfo_units, debug, log_level)
+    def __init__(self, metainfo_to_keep=None, backend=None, default_units=None, metainfo_units=None, debug=None, log_level=logging.ERROR):
+        super(CrystalParser, self).__init__(metainfo_to_keep, backend, default_units, metainfo_units, debug, log_level)
 
     def setup_version(self):
         """Setups the version by looking at the output file and the version
@@ -55,4 +53,4 @@ class CrystalParser(ParserInterface):
             logger.debug("A parser with the version id '{}' could not be found. Defaulting to the base implementation based on CRYSTAL14 public 1.0.3 ".format(version_id))
             base = "crystalparser.versions.crystal14."
             parser_class = importlib.import_module(base + "mainparser").CrystalMainParser
-        self.main_parser = parser_class(self.parser_context.main_file, self.parser_context)
+        self.main_parser = parser_class(self.parser_context)

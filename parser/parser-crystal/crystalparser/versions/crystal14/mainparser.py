@@ -9,15 +9,14 @@ import numpy as np
 logger = logging.getLogger("nomad")
 
 
-#===============================================================================
 class CrystalMainParser(MainHierarchicalParser):
     """The main parser class for crystal. This main parser will parse the
     output file.
     """
-    def __init__(self, file_path, parser_context):
+    def __init__(self, parser_context):
         """Initialize an output parser.
         """
-        super(CrystalMainParser, self).__init__(file_path, parser_context)
+        super(CrystalMainParser, self).__init__(parser_context)
 
         # Define the output parsing tree for this version
         self.regex_f = "-?(?:\d+\.?\d*|\d*\.?\d+)(?:E[\+-]?\d+)?"  # Regex for a floating point value
@@ -135,16 +134,15 @@ class CrystalMainParser(MainHierarchicalParser):
             subMatchers=[
                 SM( "^\s+\w+\s+STARTING\s+DATE\s+(?P<x_crystal_run_start_date>\d{2} \d{2} \d{4}) TIME (?P<x_crystal_run_start_time>\d{2}:\d{2}:\d{2}(\.\d+)?)\s*$"),
                 SM( "^\s*(?P<x_crystal_run_title>.*?)\s*$"),
-
-        ])
+            ])
         matcher_end = SM( "^\s*T+\s+END\s+TELAPSE\s+" + self.fk('x_crystal_endinformation_telapse') + "\s+TCPU\s+" + self.fk('x_crystal_endinformation_tcpu') + "\s*$",
             sections=['x_crystal_section_endinformation'], subMatchers=[
                 SM( "^\s*E+\s+TERMINATION\s+DATE\s+(?P<x_crystal_run_end_date>\d{2} \d{2} \d{4}) TIME (?P<x_crystal_run_end_time>\d{2}:\d{2}:\d{2}(\.\d+)?)\s*$")
         ])
-        regex_gaussian_primitive = ("^\s*(?P<x_crystal_basis_set_atom_shell_primitive_exp>{0})"
-            + "\s+(?P<x_crystal_basis_set_atom_shell_primitive_coeff_s>{0})"
-            + "\s+(?P<x_crystal_basis_set_atom_shell_primitive_coeff_p>{0})"
-            + "\s+(?P<x_crystal_basis_set_atom_shell_primitive_coeff_dfg>{0})\s*$").format(self.regex_f)
+        regex_gaussian_primitive = ("^\s*(?P<x_crystal_basis_set_atom_shell_primitive_exp>{0})" +
+            "\s+(?P<x_crystal_basis_set_atom_shell_primitive_coeff_s>{0})" +
+            "\s+(?P<x_crystal_basis_set_atom_shell_primitive_coeff_p>{0})" +
+            "\s+(?P<x_crystal_basis_set_atom_shell_primitive_coeff_dfg>{0})\s*$").format(self.regex_f)
 
         matcher_info = SM( " INFORMATION",
             forwardMatch=True,
@@ -194,7 +192,7 @@ class CrystalMainParser(MainHierarchicalParser):
                 # SM( "^.*NUMBER OF K POINTS\(GILAT NET\)\s*(?P<x_crystal_info_k_points_gilat>\d+)\s*$"),
                 # SM( "^\s*[A-Z\.\(\) ]+\s+\d+\%?\s+[A-Z\(\)]+.*?\d+\s*$"),
                 # SM( "^\s*\*+\s*$")
-        ])
+            ])
         matcher_lattice = SM( "^\s*DIRECT LATTICE VECTORS COMPON\. \(A\.U\.\)\s*RECIP\. LATTICE VECTORS COMPON\. \(A\.U\.\)\s*$", subMatchers=[
                 SM( "^\s*X\s+Y\s+Z\s+X\s+Y\s+Z\s*$", sections=['x_crystal_section_lattice'], adHoc=self.adHoc_x_crystal_lattice())
         ])
@@ -204,7 +202,7 @@ class CrystalMainParser(MainHierarchicalParser):
                 SM( "^\s*MATRIX SIZE:\s*P\(G\)\s*(?P<x_crystal_info_matrix_size_p>\d+),\s*F\(G\)\s*(?P<x_crystal_info_matrix_size_f>\d+),\s*P\(G\)\s*IRR\s*(?P<x_crystal_info_irr_p>\d+),\s*F\(G\)\s*IRR\s*(?P<x_crystal_info_irr_f>\d+)\s*$"),
                 SM( "^\s*MAX G-VECTOR INDEX FOR 1- AND 2-ELECTRON INTEGRALS\s+(?P<x_crystal_info_max_g_vector_index>\d+)\s*$"),
                 SM( "^\s*T+\s+INPUT\s+TELAPSE\s+(?P<x_crystal_info_input_telapse>{0})\s+TCPU\s+(?P<x_crystal_info_input_tcpu>{0})\s*$".format(self.regex_f))
-        ])
+            ])
         matcher_kpoints = SM( "^\s*\*+\s*K POINTS COORDINATES \(OBLIQUE COORDINATES IN UNITS OF IS\s*=\s*(?P<x_crystal_kpoints_is_units>\d+)\s*\)\s*$",
             sections=['x_crystal_section_kpoints'], adHoc=self.adHoc_x_crystal_kpoints('kpoint')
         )
@@ -478,7 +476,7 @@ class CrystalMainParser(MainHierarchicalParser):
 
         matcher_forces2 = SM( "^\s*ATOM\s+X\s+Y\s+Z\s*$", sections=['x_crystal_section_forces'], subMatchers=[
                 SM( "^\s*(?P<x_crystal_forces_atom_label>\d+)\s+(?P<x_crystal_forces_atom_z>\d+)\s+" + self.fsk('x_crystal_forces_atom_value', 3) + "\s*$",
-                    sections=['x_crystal_section_forces_atom'], otherMetaInfo=['atom_forces'], adHoc=self.adHoc_x_crystal_forces_atom()),
+                    sections=['x_crystal_section_forces_atom'], adHoc=self.adHoc_x_crystal_forces_atom()),
                 SM( "^\s*RESULTANT FORCE\s+" + self.fsk('x_crystal_forces_value', 3) + "\s*$", adHoc=self.adHoc_x_crystal_forces()),
                 SM( "^\s*THERE ARE NO SYMMETRY ALLOWED DIRECTIONS\s*$", adHoc=self.adHoc_x_crystal_forces_symmetry_allowed_directions(0)),
                 matcher_forcematrix,
@@ -493,7 +491,7 @@ class CrystalMainParser(MainHierarchicalParser):
             subMatchers=[
                 SM( "^\s*CRYSTAL\s+FAMILY\s*:\s*(?P<x_crystal_family>.*?\S.*?)\s*$"),
                 SM( "^\s*CRYSTAL\s+CLASS\s+\(?\s*(?P<x_crystal_class_ref>.*?\S.*?)\s*\)?\s*:\s*(?P<x_crystal_class>.*?\S.*?)\s*$"),
-                SM( "^\s*SPACE\s+GROUP\s+\(\s*(?P<x_crystal_spacegroup_class>\S.*?\S)\s*\)\s*:\s*(?P<x_crystal_spacegroup>.*?\S.*?)\s*$", otherMetaInfo=['spacegroup_3D_number'], adHoc=self.adHoc_x_crystal_spacegroup()),
+                SM( "^\s*SPACE\s+GROUP\s+\(\s*(?P<x_crystal_spacegroup_class>\S.*?\S)\s*\)\s*:\s*(?P<x_crystal_spacegroup>.*?\S.*?)\s*$", adHoc=self.adHoc_x_crystal_spacegroup()),
                 SM( "^\s*LATTICE\s+PARAMETERS\s+\(?\s*(?P<x_crystal_conventional_cell_units>.*?\S.*?)\s*\)?\s*\-\s*CONVENTIONAL\s+CELL\s*$",
                     subMatchers=[
                         SM( "^\s*A\s+B\s+C\s+ALPHA\s+BETA\s+GAMMA\s*$",
@@ -629,7 +627,6 @@ class CrystalMainParser(MainHierarchicalParser):
                 SM( "^\s*PRIMITIVE\s+CELL\s*\-\s*CENTRING\s+CODE\s+(?P<x_crystal_centring_code_n>\d+)\s*/\s*(?P<x_crystal_centring_code_d>\d+)\s*VOLUME\s*\=\s*(?P<x_crystal_volume>{0})\s*\-\s*DENSITY\s*(?P<x_crystal_density>{0})\s*g/cm\^3\s*$".format(self.regex_f)),
                 SM( "^\s*A\s+B\s+C\s+ALPHA\s+BETA\s+GAMMA\s*$",
                     adHoc=self.adHoc_lattice_parameters(),
-                    otherMetaInfo=['x_crystal_lattice_parameters']
                 ),
                 SM( " ATOMS IN THE ASYMMETRIC UNIT\s+{0} - ATOMS IN THE UNIT CELL:\s+{0}".format(self.regexs.int),
                     subMatchers=[
@@ -1252,7 +1249,6 @@ class CrystalMainParser(MainHierarchicalParser):
             self.input_state = 0
         return wrapper
 
-
     def adHoc_x_crystal_conventional_cell(self, n):
         def wrapper(parser):
             values = self.getAdHocValues(parser, 'value', n)
@@ -1310,7 +1306,7 @@ class CrystalMainParser(MainHierarchicalParser):
             name = self.getAdHocValueFullName(parser, 'x_crystal_spacegroup')
             for i in range(230):
                 if name == self.spacegroups[i]:
-                    parser.backend.addValue("spacegroup_3D_number", i+1)
+                    parser.backend.addValue("space_group_3D_number", i+1)
                     break
         return wrapper
 
@@ -1484,14 +1480,17 @@ class CrystalMainParser(MainHierarchicalParser):
 
     def adHoc_x_crystal_lattice(self):
         regx = re.compile("^\s*" + self.fs(6) + "\s*$")
+
         def wrapper(parser):
             real_lattice = []
             reciprocal_lattice = []
-            for i in range(0,3):
+            for i in range(0, 3):
                 vs = regx.match(parser.fIn.readline())
-                if vs is None: return
+                if vs is None:
+                    return
                 vs = vs.groups()
-                if len(vs) != 6: return
+                if len(vs) != 6:
+                    return
                 real_lattice.append(vs[0:3])
                 reciprocal_lattice.append(vs[3:6])
             parser.backend.addArrayValues('x_crystal_lattice_real', flt2(real_lattice))
@@ -1499,10 +1498,10 @@ class CrystalMainParser(MainHierarchicalParser):
             return
         return wrapper
 
-
     def adHoc_x_crystal_neighbors(self, dim):
         regx = re.compile("^\s*(\d+)\s+([A-Z]+)\s+(\d+)\s+" + self.fs(2) + "(\s+\d+\s+[A-Z]+\s+" + "[ \-]{1}\d+"*dim + ")+\s*$")
         regx2 = re.compile("\s+(\d+)\s+([A-Z]+)\s+" + "([ \-]{1}\d+)" * dim)
+
         def wrapper(parser):
             textline = parser.fIn.readline()
             line = regx.match(textline)
@@ -1548,6 +1547,7 @@ class CrystalMainParser(MainHierarchicalParser):
 
     def adHoc_x_crystal_frequency_atom(self):
         regx = re.compile("\s+(\d+)\s+([A-Z]+)\s+" + self.fs(1))
+
         def wrapper(parser):
             while True:
                 textline = parser.fIn.readline()
@@ -1566,6 +1566,7 @@ class CrystalMainParser(MainHierarchicalParser):
     def adHoc_x_crystal_section_frequency_gradients_op(self):
         regx_num = re.compile("^(\d+)$")
         regx_gen = re.compile("^GENERATED FROM LINE\s*(\S+)\s*WITH OP\s+(\d+)$")
+
         def wrapper(parser):
             text = self.getAdHocValue(parser, 'text')
             if text is None:
@@ -1587,6 +1588,7 @@ class CrystalMainParser(MainHierarchicalParser):
 
     def adHoc_x_crystal_total_atomic_charges(self, clas):
         regx = re.compile(self.regex_f)
+
         def wrapper(parser):
             textline = parser.fIn.readline()
             v = regx.findall(textline)
@@ -1643,6 +1645,7 @@ class CrystalMainParser(MainHierarchicalParser):
 
     def adHoc_x_crystal_forces_born_atom_tensor(self, n):
         regx = re.compile("^\s*(\d+)\s+" + self.fs(n) + "\s*$")
+
         def wrapper(parser):
             vs = []
             for i in range(1,n+1):
@@ -1660,6 +1663,7 @@ class CrystalMainParser(MainHierarchicalParser):
         return wrapper
 
     def adHoc_x_crystal_vibrational_multip(self):
+
         def wrapper(parser):
             texts = self.getAdHocValues(parser, 'text', 3)
             if texts is None:
@@ -1713,6 +1717,7 @@ class CrystalMainParser(MainHierarchicalParser):
 
     def adHoc_x_crystal_vibrational_modetensor(self, n):
         regx = re.compile("\s+(" + self.regex_f + ")")
+
         def wrapper(parser):
             vs = self.getAdHocValues(parser, 'value', n)
             if vs is None or len(vs) != n:
@@ -1729,12 +1734,13 @@ class CrystalMainParser(MainHierarchicalParser):
 
     def adHoc_x_crystal_vibrational_tensor(self, n, meaning):
         regx = re.compile("\s+(" + self.regex_f + ")")
+
         def wrapper(parser):
             vs = self.getAdHocValues(parser, 'value', n)
             if vs is None or len(vs) != n:
                 raise Exception("adHoc_x_crystal_vibrational_modetensor strange(1)")
             vs = [vs]
-            for i in range(1,n):
+            for i in range(1, n):
                 line = regx.findall(parser.fIn.readline())
                 if line is None or len(line) != n:
                     raise Exception("adHoc_x_crystal_vibrational_modetensor strange(2)")
@@ -1757,10 +1763,11 @@ class CrystalMainParser(MainHierarchicalParser):
         regx1 = re.compile("^\s*AT\.\s+(\d+)\s+([A-Z]+)\s+([XYZ]{1})\s+" + self.fs(n*dim) + "\s*$")
         regx2 = re.compile("^\s*([XYZ]{1})\s+" + self.fs(n*dim) + "\s*$")
         rempty = re.compile("^\s*$")
+
         def wrapper(parser):
             frequencies = self.getAdHocValues(parser, 'value', dim*n)
             if frequencies is None:
-                raise Exception('adHoc_x_crystal_irX_modes (' + type +'): strange(1)')
+                raise Exception('adHoc_x_crystal_irX_modes (' + type + '): strange(1)')
             if type == 'lo':
                 frequencies = self.reorder(frequencies, dim)
             textline = parser.fIn.readline()
@@ -1768,10 +1775,10 @@ class CrystalMainParser(MainHierarchicalParser):
                 textline = parser.fIn.readline()
             line = regx1.match(textline)
             if line is None:
-                raise Exception('adHoc_x_crystal_irX_modes (' + type +'): strange(2)')
+                raise Exception('adHoc_x_crystal_irX_modes (' + type + '): strange(2)')
             line = line.groups()
             if len is None or len(line) != 3+n*dim:
-                raise Exception('adHoc_x_crystal_irX_modes (' + type +'): strange(3)')
+                raise Exception('adHoc_x_crystal_irX_modes (' + type + '): strange(3)')
             gIndex = parser.backend.openSection('x_crystal_section_ir' + type + '_modes_atom')
             parser.backend.addValue('x_crystal_ir' + type + '_modes_atom_label', int(line[0]))
             parser.backend.addValue('x_crystal_ir' + type + '_modes_atom_element', line[1])
@@ -1819,11 +1826,11 @@ class CrystalMainParser(MainHierarchicalParser):
             n = len(to_frequencies)
             if n < 1:
                 raise Exception('adHoc_x_crystal_irlo_overlap strange(2)')
-            textline = parser.fIn.readline();
+            textline = parser.fIn.readline()
             if not rempty.match(textline):
                 raise Exception('adHoc_x_crystal_irlo_overlap strange(3)')
-            for i in range(0,n):
-                line = self.regex_fs.findall(parser.fIn.readline());
+            for i in range(0, n):
+                line = self.regex_fs.findall(parser.fIn.readline())
                 if line is None or len(line) != n+1:
                     raise Exception('adHoc_x_crystal_irlo_overlap strange(4)')
                 lo_frequencies.append(line[0])
