@@ -62,4 +62,4 @@ test/unittests/BASIS_SET
 test/unittests/GTH_POTENTIALS
 
 # Setuptools install folder
-parser/parser-crystal/crystalparser.egg-info/
+crystalparser.egg-info/

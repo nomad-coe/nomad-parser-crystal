@@ -1,11 +1,11 @@
 # Copyright 2016-2018 Sami Kivistö, Lauri Himanen, Fawzi Mohamed, Ankit Kariryaa
-# 
+#
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
 #   You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 #   Unless required by applicable law or agreed to in writing, software
 #   distributed under the License is distributed on an "AS IS" BASIS,
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,7 +16,7 @@ import re
 import logging
 import importlib
 from nomadcore.baseclasses import ParserInterface
-logger = logging.getLogger(__name__)
+# logger = logging.getLogger(__name__)
 
 
 class CrystalParser(ParserInterface):
@@ -27,8 +27,20 @@ class CrystalParser(ParserInterface):
     After the implementation has been setup, you can parse the files with
     parse().
     """
-    def __init__(self, metainfo_to_keep=None, backend=None, default_units=None, metainfo_units=None, debug=None, log_level=logging.ERROR):
-        super(CrystalParser, self).__init__(metainfo_to_keep, backend, default_units, metainfo_units, debug, log_level)
+    def __init__(
+        self, metainfo_to_keep=None, backend=None, default_units=None,
+        metainfo_units=None, debug=None, logger=None, log_level=logging.ERROR
+    ):
+        super(CrystalParser, self).__init__(
+            metainfo_to_keep, backend, default_units, metainfo_units,
+            debug, log_level
+        )
+
+        if logger is not None:
+            self.logger = logger
+            self.logger.info('received logger')
+        else:
+            self.logger = logging.getLogger(__name__)
 
     def setup_version(self):
         """Setups the version by looking at the output file and the version
@@ -47,7 +59,7 @@ class CrystalParser(ParserInterface):
                 if match:
                     version_id = match.groups()[0]
         if not version_id:
-            logger.error("Could not find a version specification from the given main file.")
+            self.logger.error("Could not find a version specification from the given main file.")
 
         self.setup_main_parser(version_id)
 
@@ -64,7 +76,7 @@ class CrystalParser(ParserInterface):
         try:
             parser_class = importlib.import_module(base + "mainparser").CrystalMainParser
         except ImportError:
-            logger.debug("A parser with the version id '{}' could not be found. Defaulting to the base implementation based on CRYSTAL14 public 1.0.3 ".format(version_id))
+            self.logger.debug("A parser with the version id '{}' could not be found. Defaulting to the base implementation based on CRYSTAL14 public 1.0.3 ".format(version_id))
             base = "crystalparser.versions.crystal14."
             parser_class = importlib.import_module(base + "mainparser").CrystalMainParser
         self.main_parser = parser_class(self.parser_context)
