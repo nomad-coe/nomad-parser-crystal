@@ -178,11 +178,11 @@ class CrystalInputParser(object):
 
         # Go throught the XC list and add the sections and gather a summary
         for xc in xc_list:
-            sid = backend.openSection("section_XC_functionals")
+            sid = backend.openSection("section_xc_functionals")
             weight = 1.0
-            backend.addValue("XC_functional_name", xc)
-            backend.addValue("XC_functional_weight", weight)
-            backend.closeSection("section_XC_functionals", sid)
+            backend.addValue("xc_functional_name", xc)
+            backend.addValue("xc_functional_weight", weight)
+            backend.closeSection("section_xc_functionals", sid)
             xc_summary.append("{}*{}".format(weight, xc))
 
         if len(xc_list) == 0:
@@ -190,7 +190,7 @@ class CrystalInputParser(object):
             print(exchange)
             print(correlation)
 
-        backend.addValue("XC_functional", "+".join(sorted(xc_summary)))
+        backend.addValue("xc_functional", "+".join(sorted(xc_summary)))
 
     def debug(self):
         print("DEBUG")

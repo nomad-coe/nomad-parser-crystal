@@ -85,7 +85,7 @@ class TestSinglePointHF(unittest.TestCase):
         self.assertEqual(result, "DFT")
 
     def test_single_configuration_to_calculation_method_ref(self):
-        result = self.results["single_configuration_to_calculation_method_ref"]
+        result = self.results["single_configuration_calculation_to_method_ref"]
         self.assertEqual(result, 0)
 
     def test_single_configuration_calculation_to_system_description_ref(self):
@@ -158,7 +158,7 @@ class TestSinglePointDFT(unittest.TestCase):
         self.assertEqual(result, "DFT")
 
     def test_single_configuration_to_calculation_method_ref(self):
-        result = self.results["single_configuration_to_calculation_method_ref"]
+        result = self.results["single_configuration_calculation_to_method_ref"]
         self.assertEqual(result, 0)
 
     def test_single_configuration_calculation_to_system_description_ref(self):
@@ -182,10 +182,10 @@ class TestSinglePointDFT(unittest.TestCase):
         self.assertTrue(np.array_equal(cell, expected_cell))
 
     def test_xc_functional(self):
-        result = self.results["XC_functional"]
+        result = self.results["xc_functional"]
         self.assertEqual(result, "1.0*GGA_X_B88+1.0*LDA_C_PZ")
 
-        names = self.results["XC_functional_name"]
+        names = self.results["xc_functional_name"]
         self.assertTrue(np.array_equal(names, np.array(["GGA_X_B88", "LDA_C_PZ"])))
 
     def test_scf_max_iteration(self):

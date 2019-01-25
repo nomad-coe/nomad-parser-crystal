@@ -1188,9 +1188,9 @@ class CrystalMainParser(MainHierarchicalParser):
 
     def onClose_section_single_configuration_calculation(self, backend, gIndex, section):
         # Method reference
-        method_index = self.method.get("single_configuration_to_calculation_method_ref")
+        method_index = self.method.get("single_configuration_calculation_to_method_ref")
         if method_index is not None:
-            backend.addValue("single_configuration_to_calculation_method_ref", method_index)
+            backend.addValue("single_configuration_calculation_to_method_ref", method_index)
 
         # Method reference
         system_index = self.method.get("single_configuration_calculation_to_system_ref")
@@ -1225,14 +1225,16 @@ class CrystalMainParser(MainHierarchicalParser):
         return
 
     def onClose_x_crystal_section_forces_atom(self, backend, gIndex, section):
+        fId = backend.openSection('section_atom_forces')
         backend.addArrayValues('atom_forces', np.array(self.method['atom_forces']))
+        backend.closeSection('section_atom_forces', fId)
         self.method['atom_forces'] = None
         return
 
     #===========================================================================
     # The functions that trigger when sections are opened
     def onOpen_section_method(self, backend, gIndex, section):
-        self.method["single_configuration_to_calculation_method_ref"] = gIndex
+        self.method["single_configuration_calculation_to_method_ref"] = gIndex
 
     def onOpen_section_system(self, backend, gIndex, section):
         self.method["single_configuration_calculation_to_system_description_ref"] = gIndex
