@@ -1,11 +1,11 @@
 # Copyright 2016-2018 Sami Kivistö, Lauri Himanen, Fawzi Mohamed, Ankit Kariryaa
-# 
+#
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
 #   You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 #   Unless required by applicable law or agreed to in writing, software
 #   distributed under the License is distributed on an "AS IS" BASIS,
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -1158,7 +1158,7 @@ class CrystalMainParser(MainHierarchicalParser):
                 lvalues = [4]
             if lvalues is not None:
                 backend.addArrayValues('gaussian_basis_group_ls', np.array(lvalues))
-            backend.addValue('number_of_gaussian_basis_group_contractions', len(lvalues))
+                backend.addValue('number_of_gaussian_basis_group_contractions', len(lvalues))
 
         if exponents is not None:
             backend.addValue('number_of_gaussian_basis_group_exponents', len(exponents))
