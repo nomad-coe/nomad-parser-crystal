@@ -1,0 +1,7 @@
+code-label: CRYSTAL
+code-label-style: all in capitals
+code-url: https://www.crystal.unito.it/
+parser-dir-name: dependencies/parsers/crystal/
+parser-git-url: https://gitlab.mpcdf.mpg.de/nomad-lab/parser-crystal
+parser-specific: ''
+table-of-files: ''
