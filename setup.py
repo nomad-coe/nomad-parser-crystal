@@ -22,12 +22,8 @@ def main():
         description="NOMAD parser implementation for Crystal.",
         author="Lauri Himanen",
         author_email="lauri.himanen@aalto.fi",
-        license="GPL3",
-        package_dir={'': './'},
+        license="APACHE 2.0",
         packages=find_packages(),
-        install_requires=[
-            'nomadcore',
-        ],
     )
 
 
