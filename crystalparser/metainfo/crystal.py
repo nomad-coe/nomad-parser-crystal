@@ -1866,38 +1866,6 @@ class x_crystal_section_input(MSection):
         a_legacy=LegacyDefinition(name='x_crystal_section_input_dft'))
 
 
-class x_crystal_section_input_dft(MSection):
-    '''
-    DFT input.
-    '''
-
-    m_def = Section(validate=False, a_legacy=LegacyDefinition(name='x_crystal_section_input_dft'))
-
-    x_crystal_input_dft_xc_shortcut = Quantity(
-        type=str,
-        shape=[],
-        description='''
-        DFT exchange-correlation functional shortcut name
-        ''',
-        a_legacy=LegacyDefinition(name='x_crystal_input_dft_xc_shortcut'))
-
-    x_crystal_input_dft_exchange = Quantity(
-        type=str,
-        shape=[],
-        description='''
-        DFT exchange functional name
-        ''',
-        a_legacy=LegacyDefinition(name='x_crystal_input_dft_exchange'))
-
-    x_crystal_input_dft_correlation = Quantity(
-        type=str,
-        shape=[],
-        description='''
-        DFT correlation functional name
-        ''',
-        a_legacy=LegacyDefinition(name='x_crystal_input_dft_correlation'))
-
-
 class x_crystal_section_irlo_modes_atom_mode(MSection):
     '''
     Mode
@@ -3077,7 +3045,6 @@ class x_crystal_section_properties(MSection):
     '''
     program called properties, output file begins.
     '''
-
     m_def = Section(validate=False, a_legacy=LegacyDefinition(name='x_crystal_section_properties'))
 
     x_crystal_properties_cappa_is1 = Quantity(
@@ -3496,14 +3463,6 @@ class x_crystal_section_properties(MSection):
         VIR. COEFF.
         ''',
         a_legacy=LegacyDefinition(name='x_crystal_properties_virial_coefficient'))
-
-    x_crystal_properties_weight_f = Quantity(
-        type=np.dtype(np.float64),
-        shape=[],
-        description='''
-        WEIGHT OF F(I) IN F(I+1)
-        ''',
-        a_legacy=LegacyDefinition(name='x_crystal_properties_weight_f'))
 
     x_crystal_section_bands = SubSection(
         sub_section=SectionProxy('x_crystal_section_bands'),
@@ -5527,11 +5486,6 @@ class section_run(public.section_run):
         repeats=True,
         a_legacy=LegacyDefinition(name='x_crystal_section_endinformation'))
 
-    x_crystal_section_input = SubSection(
-        sub_section=SectionProxy('x_crystal_section_input'),
-        repeats=True,
-        a_legacy=LegacyDefinition(name='x_crystal_section_input'))
-
     x_crystal_section_properties = SubSection(
         sub_section=SectionProxy('x_crystal_section_properties'),
         repeats=True,
@@ -5547,7 +5501,7 @@ class section_method(public.section_method):
 
     m_def = Section(validate=False, extends_base_section=True, a_legacy=LegacyDefinition(name='section_method'))
 
-    x_crystal_convergence_on_deltap = Quantity(
+    x_crystal_convergence_deltap = Quantity(
         type=np.dtype(np.float64),
         shape=[],
         description='''
@@ -5555,13 +5509,13 @@ class section_method(public.section_method):
         ''',
         a_legacy=LegacyDefinition(name='x_crystal_info_convergence_on_deltap'))
 
-    x_crystal_convergence_on_energy = Quantity(
+    x_crystal_weight_f = Quantity(
         type=np.dtype(np.float64),
         shape=[],
         description='''
-        Convergence seettings, on power of 10 (e.g. CONVERGENCE ON ENERGY        10**-10)
+        WEIGHT OF F(I) IN F(I+1)
         ''',
-        a_legacy=LegacyDefinition(name='x_crystal_info_convergence_on_energy'))
+        a_legacy=LegacyDefinition(name='x_crystal_properties_weight_f'))
 
     x_crystal_coulomb_bipolar_buffer = Quantity(
         type=np.dtype(np.float64),
@@ -5662,7 +5616,7 @@ class section_method(public.section_method):
         ''',
         a_legacy=LegacyDefinition(name='x_crystal_info_is3'))
 
-    x_crystal_k_points_gilat = Quantity(
+    x_crystal_n_k_points_gilat = Quantity(
         type=np.dtype(np.int32),
         shape=[],
         description='''
@@ -5670,7 +5624,7 @@ class section_method(public.section_method):
         ''',
         a_legacy=LegacyDefinition(name='x_crystal_info_k_points_gilat'))
 
-    x_crystal_k_points_ibz = Quantity(
+    x_crystal_n_k_points_ibz = Quantity(
         type=np.dtype(np.int32),
         shape=[],
         description='''
@@ -5776,7 +5730,7 @@ class section_method(public.section_method):
         a_legacy=LegacyDefinition(name='x_crystal_info_pole_order'))
 
     x_crystal_shrink_gilat = Quantity(
-        type=np.dtype(np.float64),
+        type=np.dtype(np.int32),
         shape=[],
         description='''
         SHRINKING FACTOR(GILAT NET)   16
@@ -5809,7 +5763,7 @@ class section_method(public.section_method):
 
     x_crystal_shrink = Quantity(
         type=np.dtype(np.int32),
-        shape=['n'],
+        shape=[3],
         description='''
         SHRINK. FACT.(MONKH.)   16 16 16
         ''',

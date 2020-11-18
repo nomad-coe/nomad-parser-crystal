@@ -97,7 +97,7 @@ def asserts_code_specific(archive, method_type="DFT", system_type="3D", vdw=None
     assert run.x_crystal_executable_path is not None
     assert run.x_crystal_tmpdir is not None
 
-    # print(method.x_crystal_tol_pseudo_overlap_p)
+    # print(method.x_crystal_n_k_points_gilat)
     assert method.x_crystal_fock_ks_matrix_mixing is not None
     assert method.x_crystal_coulomb_bipolar_buffer is not None
     assert method.x_crystal_exchange_bipolar_buffer is not None
@@ -112,6 +112,20 @@ def asserts_code_specific(archive, method_type="DFT", system_type="3D", vdw=None
     assert method.x_crystal_tol_exchange_overlap is not None
     assert method.x_crystal_tol_pseudo_overlap_f is not None
     assert method.x_crystal_tol_pseudo_overlap_p is not None
+    assert method.x_crystal_pole_order is not None
+    assert method.x_crystal_type_of_calculation is not None
+    assert method.x_crystal_is1 is not None
+    assert method.x_crystal_is2 is not None
+    assert method.x_crystal_is3 is not None
+    assert method.x_crystal_k_pts_monk_net is not None
+    assert method.x_crystal_symmops_k is not None
+    assert method.x_crystal_symmops_g is not None
+    assert method.x_crystal_convergence_deltap is not None
+    assert method.x_crystal_shrink is not None
+    assert method.x_crystal_shrink_gilat is not None
+    assert method.x_crystal_weight_f is not None
+    assert method.x_crystal_n_k_points_ibz is not None
+    assert method.x_crystal_n_k_points_gilat is not None
     if method_type == "DFT":
         assert method.x_crystal_toldee is not None
 

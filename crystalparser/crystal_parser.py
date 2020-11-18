@@ -150,31 +150,18 @@ class CrystalParser(FairdiParser):
                 Quantity("tol_exchange_overlap", r' EXCHANGE OVERLAP TOL\s+\(T3\) ' + flt_crystal_c, str_operation=to_float, repeats=False),
                 Quantity("tol_pseudo_overlap_f", r' EXCHANGE PSEUDO OVP \(F\(G\)\)\s+\(T4\) ' + flt_crystal_c, str_operation=to_float, repeats=False),
                 Quantity("tol_pseudo_overlap_p", r' EXCHANGE PSEUDO OVP \(P\(G\)\)\s+\(T5\) ' + flt_crystal_c, str_operation=to_float, repeats=False),
-
-                # SM( "^.*EXCHANGE PSEUDO OVP \(F\(G\)\)\s*\(T\d+\)\s+10\*\*\s*(?P<x_crystal_info_tol_pseudo_overlap_f>{})\s*$".format(self.regex_f)),
-                # SM( "^.*EXCHANGE PSEUDO OVP \(P\(G\)\)\s*\(T\d+\)\s+10\*\*\s*(?P<x_crystal_info_tol_pseudo_overlap_p>{})\s*$".format(self.regex_f)),
-                # SM( "^.*POLE ORDER IN MONO ZONE\s*(?P<x_crystal_info_pole_order>\d+)\s*$"),
-                # SM( "^\s*[A-Z\. ]+\s+\d+\s+[A-Z\. ]+.*?\d+\s*$"),
-
-                Quantity(
-                    'xc_functional',
-                    r' \(EXCHANGE\)\[CORRELATION\] FUNCTIONAL:(\(.+\)\[.+\])\n',
-                    str_operation=lambda x: x,
-                    repeats=False,
-                ),
-                Quantity(
-                    'scf_max_iteration',
-                    r' MAX NUMBER OF SCF CYCLES\s+' + integer_c,
-                    repeats=False,
-                ),
-                Quantity(
-                    'scf_threshold_energy_change',
-                    r' WEIGHT OF F\(I\) IN F\(I\+1\)\s+\d+\%\s+CONVERGENCE ON ENERGY\s+' + flt_crystal_c,
-                    str_operation=to_float,
-                    repeats=False,
-                    unit=ureg.hartree,
-                ),
-                # SCF
+                Quantity("pole_order", r' POLE ORDER IN MONO ZONE\s+' + integer_c, repeats=False),
+                Quantity("calculation_type", r' TYPE OF CALCULATION \:\s+(.*?\n\s+.*?)\n', str_operation=lambda x: " ".join(x.split()), repeats=False),
+                Quantity('xc_functional', r' \(EXCHANGE\)\[CORRELATION\] FUNCTIONAL:(\(.+\)\[.+\])\n', str_operation=lambda x: x, repeats=False,),
+                Quantity("cappa", r'CAPPA:IS1\s+' + integer_c + r';IS2\s+' + integer_c + r';IS3\s+' + integer_c + '; K PTS MONK NET\s+' + integer_c + r'; SYMMOPS:K SPACE\s+' + integer_c + ';G SPACE\s+' + integer_c, repeats=False),
+                Quantity('scf_max_iteration', r' MAX NUMBER OF SCF CYCLES\s+' + integer_c, repeats=False),
+                Quantity('convergenge_deltap', r'CONVERGENCE ON DELTAP\s+' + flt_crystal_c, str_operation=to_float, repeats=False),
+                Quantity('weight_f', r'WEIGHT OF F\(I\) IN F\(I\+1\)\s+' + integer_c, repeats=False),
+                Quantity('scf_threshold_energy_change', r'CONVERGENCE ON ENERGY\s+' + flt_crystal_c, str_operation=to_float, repeats=False, unit=ureg.hartree),
+                Quantity('shrink', r'SHRINK\. FACT\.\(MONKH\.\)\s+(' + integer + ws + integer + ws + integer + r')', repeats=False),
+                Quantity('n_k_points_ibz', r'NUMBER OF K POINTS IN THE IBZ\s+' + integer_c, repeats=False),
+                Quantity('shrink_gilat', r'SHRINKING FACTOR\(GILAT NET\)\s+' + integer_c, repeats=False),
+                Quantity('n_k_points_gilat', r'NUMBER OF K POINTS\(GILAT NET\)\s+' + integer_c, repeats=False),
                 Quantity(
                     "scf_block",
                     r' CHARGE NORMALIZATION FACTOR([\s\S]*?) == SCF ENDED',
@@ -296,6 +283,21 @@ class CrystalParser(FairdiParser):
         method.x_crystal_tol_exchange_overlap = out["tol_exchange_overlap"]
         method.x_crystal_tol_pseudo_overlap_f = out["tol_pseudo_overlap_f"]
         method.x_crystal_tol_pseudo_overlap_p = out["tol_pseudo_overlap_p"]
+        method.x_crystal_pole_order = out["pole_order"]
+        method.x_crystal_type_of_calculation = out["calculation_type"]
+        cappa = out["cappa"]
+        method.x_crystal_is1 = cappa[0]
+        method.x_crystal_is2 = cappa[1]
+        method.x_crystal_is3 = cappa[2]
+        method.x_crystal_k_pts_monk_net = cappa[3]
+        method.x_crystal_symmops_k = cappa[4]
+        method.x_crystal_symmops_g = cappa[5]
+        method.x_crystal_weight_f = out["weight_f"]
+        method.x_crystal_shrink = out["shrink"]
+        method.x_crystal_shrink_gilat = out["shrink_gilat"]
+        method.x_crystal_convergence_deltap = out["convergenge_deltap"]
+        method.x_crystal_n_k_points_ibz = out["n_k_points_ibz"]
+        method.x_crystal_n_k_points_gilat = out["n_k_points_gilat"]
 
         # SCC
         scf_block = out["scf_block"]
