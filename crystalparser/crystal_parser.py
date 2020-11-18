@@ -1,4 +1,5 @@
 import logging
+import datetime
 import re
 import numpy as np
 
@@ -11,7 +12,6 @@ from nomad.datamodel.metainfo.public import section_run, section_method, section
     section_atom_projected_dos, section_species_projected_dos, section_k_band,\
     section_k_band_segment, section_energy_van_der_Waals, section_calculation_to_calculation_refs,\
     section_method_to_method_refs
-from .metainfo import m_env
 
 
 def capture(regex):
@@ -19,7 +19,7 @@ def capture(regex):
 
 flt = r'-?(?:\d+\.?\d*|\d*\.?\d+)(?:E[\+-]?\d+)?' # Floating point number
 flt_c = capture(flt)                              # Captures a floating point number
-flt_crystal_c = r'(-?\d+(?:.\d+)?\*\*-?.*\d+)'     # Crystal specific floating point syntax
+flt_crystal_c = r'(-?\d+(?:.\d+)?\*\*-?.*\d+)'    # Crystal specific floating point syntax
 ws = r'\s+'                                       # Series of white-space characters
 br = r'\n'                                        # Line break
 integer = r'-?\d+'                                # Integer number
@@ -49,8 +49,17 @@ class CrystalParser(FairdiParser):
             filepath,
             quantities=[
                 # Header
+                Quantity("datetime", r'(?:Date\:|date)\s+(.*?)\n', str_operation=lambda x: x, repeats=False),
+                Quantity("hostname", r'(?:Running on\:|hostname)\s+(.*?)\n', str_operation=lambda x: x, repeats=False),
+                Quantity("os", r'(?:system)\s+(.*?)\n', str_operation=lambda x: x, repeats=False),
+                Quantity("user", r'user\s+(.*?)\n', str_operation=lambda x: x, repeats=False),
+                Quantity("input_path", r'(?:Input data|input data in)\s+(.*?)\n', str_operation=lambda x: x, repeats=False),
+                Quantity("output_path", r'(?:Output\:|output data in)\s+(.*?)\n', str_operation=lambda x: x, repeats=False),
+                Quantity("executable_path", r'(?:Executable\:|crystal executable in)\s+(.*?)\n', str_operation=lambda x: x, repeats=False),
+                Quantity("tmpdir", r'(?:Temporary directory\:|temporary directory)\s+(.*?)\n', str_operation=lambda x: x, repeats=False),
                 Quantity("system_type", r'(CRYSTAL|SLAB|POLYMER|HELIX|MOLECULE|EXTERNAL|DLVINPUT)', repeats=False),
                 Quantity("calculation_type", r'(OPTGEOM|FREQCALC|ANHARM)', repeats=False),
+
                 # Input
                 Quantity(
                     "dftd3",
@@ -93,6 +102,10 @@ class CrystalParser(FairdiParser):
                     repeats=False,
                 ),
                 Quantity("program_version", r'\s*\*\s*CRYSTAL(.*?)\s*\*\s*', repeats=False, dtype=str),
+                Quantity("distribution", r'\n \*\s*(.*? \: .*? - .*?)\s*\*\n', str_operation=lambda x: x, repeats=False),
+                Quantity("start_timestamp", r' EEEEEEEEEE STARTING  DATE\s+(.*? TIME .*?)\n', str_operation=lambda x: x, repeats=False),
+                Quantity("title", r' EEEEEEEEEE STARTING  DATE.*?\n\s*(.*?)\n\n', str_operation=lambda x: x, repeats=False),
+
                 # System
                 Quantity("dimensionality",
                     r' GEOMETRY FOR WAVE FUNCTION - DIMENSIONALITY OF THE SYSTEM\s+(\d)',
@@ -122,6 +135,27 @@ class CrystalParser(FairdiParser):
                     repeats=False,
                 ),
                 # Method
+                Quantity("fock_ks_matrix_mixing", r' INFORMATION \*+.*?\*+.*?\:\s+FOCK/KS MATRIX MIXING SET TO\s+' + integer_c + r'\s+\%\n*', repeats=False),
+                Quantity("coulomb_bipolar_buffer", r' INFORMATION \*+.*?\*+.*?\:\s+COULOMB BIPOLAR BUFFER SET TO\s+' + flt_c + r' Mb\n*', repeats=False),
+                Quantity("exchange_bipolar_buffer", r' INFORMATION \*+.*?\*+.*?\:\s+EXCHANGE BIPOLAR BUFFER SET TO\s+' + flt_c + r' Mb\n*', repeats=False),
+                Quantity("toldee", r' INFORMATION \*+ TOLDEE \*+\s*\*+ SCF TOL ON TOTAL ENERGY SET TO\s+' + flt_c + r'\n', repeats=False),
+                Quantity("n_atoms_per_cell", r' N\. OF ATOMS PER CELL\s+' + integer_c, repeats=False),
+                Quantity("n_shells", r' NUMBER OF SHELLS\s+' + integer_c, repeats=False),
+                Quantity("n_ao", r' NUMBER OF AO\s+' + integer_c, repeats=False),
+                Quantity("n_electrons", r' N\. OF ELECTRONS PER CELL\s+' + integer_c, repeats=False),
+                Quantity("n_core_electrons", r' CORE ELECTRONS PER CELL\s+' + integer_c, repeats=False),
+                Quantity("n_symmops", r' N\. OF SYMMETRY OPERATORS\s+' + integer_c, repeats=False),
+                Quantity("tol_coulomb_overlap", r' COULOMB OVERLAP TOL\s+\(T1\) ' + flt_crystal_c, str_operation=to_float, repeats=False),
+                Quantity("tol_coulomb_penetration", r' COULOMB PENETRATION TOL\s+\(T2\) ' + flt_crystal_c, str_operation=to_float, repeats=False),
+                Quantity("tol_exchange_overlap", r' EXCHANGE OVERLAP TOL\s+\(T3\) ' + flt_crystal_c, str_operation=to_float, repeats=False),
+                Quantity("tol_pseudo_overlap_f", r' EXCHANGE PSEUDO OVP \(F\(G\)\)\s+\(T4\) ' + flt_crystal_c, str_operation=to_float, repeats=False),
+                Quantity("tol_pseudo_overlap_p", r' EXCHANGE PSEUDO OVP \(P\(G\)\)\s+\(T5\) ' + flt_crystal_c, str_operation=to_float, repeats=False),
+
+                # SM( "^.*EXCHANGE PSEUDO OVP \(F\(G\)\)\s*\(T\d+\)\s+10\*\*\s*(?P<x_crystal_info_tol_pseudo_overlap_f>{})\s*$".format(self.regex_f)),
+                # SM( "^.*EXCHANGE PSEUDO OVP \(P\(G\)\)\s*\(T\d+\)\s+10\*\*\s*(?P<x_crystal_info_tol_pseudo_overlap_p>{})\s*$".format(self.regex_f)),
+                # SM( "^.*POLE ORDER IN MONO ZONE\s*(?P<x_crystal_info_pole_order>\d+)\s*$"),
+                # SM( "^\s*[A-Z\. ]+\s+\d+\s+[A-Z\. ]+.*?\d+\s*$"),
+
                 Quantity(
                     'xc_functional',
                     r' \(EXCHANGE\)\[CORRELATION\] FUNCTIONAL:(\(.+\)\[.+\])\n',
@@ -181,6 +215,7 @@ class CrystalParser(FairdiParser):
                     dtype=str,
                     repeats=False,
                 ),
+                Quantity("end_timestamp", r' EEEEEEEEEE TERMINATION  DATE\s+(.*? TIME .*?)\n', str_operation=lambda x: x, repeats=False),
             ]
         )
 
@@ -196,6 +231,23 @@ class CrystalParser(FairdiParser):
         run.program_version = out["program_version"]
         run.program_basis_set_type = 'gaussians'
         run.electronic_structure_method = 'DFT'
+        run.x_crystal_datetime = out["datetime"]
+        run.x_crystal_hostname = out["hostname"]
+        run.x_crystal_user = out["user"]
+        run.x_crystal_os = out["os"]
+        run.x_crystal_input_path = out["input_path"]
+        run.x_crystal_output_path = out["output_path"]
+        run.x_crystal_tmpdir = out["tmpdir"]
+        run.x_crystal_executable_path = out["executable_path"]
+        distribution = out["distribution"]
+        dist, rest = distribution.split(" : ", 1)
+        minor, rest = rest.split(" - ", 1)
+        run.x_crystal_distribution = dist
+        run.x_crystal_version_minor = minor
+        run.x_crystal_version_date = rest
+        run.x_crystal_run_title = out["title"].strip()
+        run.time_run_date_start = to_unix_time(out["start_timestamp"])
+        run.time_run_date_end = to_unix_time(out["end_timestamp"])
 
         # System
         system = run.m_create(section_system)
@@ -229,6 +281,21 @@ class CrystalParser(FairdiParser):
             for xc in functionals:
                 method.m_add_sub_section(section_method.section_XC_functionals, xc)
             method.XC_functional = "+".join(sorted(["{}*{}".format(x.XC_functional_weight, x.XC_functional_name) for x in functionals]))
+        method.x_crystal_fock_ks_matrix_mixing = out["fock_ks_matrix_mixing"]
+        method.x_crystal_coulomb_bipolar_buffer = out["coulomb_bipolar_buffer"]
+        method.x_crystal_exchange_bipolar_buffer = out["exchange_bipolar_buffer"]
+        method.x_crystal_toldee = out["toldee"]
+        method.x_crystal_n_atoms = out["n_atoms_per_cell"]
+        method.x_crystal_n_shells = out["n_shells"]
+        method.x_crystal_n_orbitals = out["n_ao"]
+        method.x_crystal_n_electrons = out["n_electrons"]
+        method.x_crystal_n_core_electrons = out["n_core_electrons"]
+        method.x_crystal_n_symmops = out["n_symmops"]
+        method.x_crystal_tol_coulomb_overlap = out["tol_coulomb_overlap"]
+        method.x_crystal_tol_coulomb_penetration = out["tol_coulomb_penetration"]
+        method.x_crystal_tol_exchange_overlap = out["tol_exchange_overlap"]
+        method.x_crystal_tol_pseudo_overlap_f = out["tol_pseudo_overlap_f"]
+        method.x_crystal_tol_pseudo_overlap_p = out["tol_pseudo_overlap_p"]
 
         # SCC
         scf_block = out["scf_block"]
@@ -256,6 +323,19 @@ def to_float(value):
     base = int(base)
     exponent = int("".join(exponent.split()))
     return pow(base, exponent)
+
+
+def to_unix_time(value):
+    """Transforms the Crystal-specific float notation into a floating point
+    number.
+    """
+    if value is None:
+        return None
+
+    value = value.strip()
+    date_time_obj = datetime.datetime.strptime(value, '%d %m %Y TIME %H:%M:%S.%f')
+    return date_time_obj.timestamp()
+
 
 def to_libxc(exchange, correlation, exchange_correlation):
     """Transforms the Crystal-specific XC naming into a list of

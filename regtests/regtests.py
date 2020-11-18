@@ -9,6 +9,7 @@ def test_single_point_dft():
     filepath = "./single_point/dft/output.out"
     archive = parse(filepath)
     asserts_basic(archive)
+    asserts_code_specific(archive, vdw="DFT-D3", forces=True)
 
 
 def test_single_point_hf():
@@ -17,6 +18,7 @@ def test_single_point_hf():
     filepath = "./single_point/hf/output.out"
     archive = parse(filepath)
     asserts_basic(archive, method_type="HF")
+    asserts_code_specific(archive, method_type="HF")
 
 def test_single_point_forces():
     """Tests that forces are correctly parsed.
@@ -24,6 +26,7 @@ def test_single_point_forces():
     filepath = "./single_point/forces/HfS2_PBE0D3_ZD_fc3_supercell-00001.o"
     archive = parse(filepath)
     asserts_basic(archive, vdw="DFT-D3", forces=True)
+    asserts_code_specific(archive)
 
 
 def parse(filepath):
@@ -43,6 +46,9 @@ def asserts_basic(archive, method_type="DFT", system_type="3D", vdw=None, forces
 
     assert run.program_name == "Crystal"
     assert run.program_basis_set_type == "gaussians"
+    assert run.time_run_date_start is not None
+    assert run.time_run_date_end is not None
+
     if method_type == "DFT":
         assert run.electronic_structure_method == "DFT"
         assert method.XC_functional is not None
@@ -73,6 +79,43 @@ def asserts_basic(archive, method_type="DFT", system_type="3D", vdw=None, forces
             assert scc.atom_forces is not None
             assert scc.atom_forces.shape[0] == n_atoms
 
+def asserts_code_specific(archive, method_type="DFT", system_type="3D", vdw=None, forces=False):
+    run = archive.section_run[0]
+    systems = run.section_system
+    method = run.section_method[0]
+    sccs = run.section_single_configuration_calculation
+    n_atoms = len(systems[0].atom_species)
+
+    assert run.x_crystal_run_title is not None
+    assert run.x_crystal_hostname is not None
+    assert run.x_crystal_datetime is not None
+    assert run.x_crystal_distribution is not None
+    assert run.x_crystal_version_minor is not None
+    assert run.x_crystal_version_date is not None
+    assert run.x_crystal_input_path is not None
+    assert run.x_crystal_output_path is not None
+    assert run.x_crystal_executable_path is not None
+    assert run.x_crystal_tmpdir is not None
+
+    # print(method.x_crystal_tol_pseudo_overlap_p)
+    assert method.x_crystal_fock_ks_matrix_mixing is not None
+    assert method.x_crystal_coulomb_bipolar_buffer is not None
+    assert method.x_crystal_exchange_bipolar_buffer is not None
+    assert method.x_crystal_n_atoms is not None
+    assert method.x_crystal_n_shells is not None
+    assert method.x_crystal_n_orbitals is not None
+    assert method.x_crystal_n_electrons is not None
+    assert method.x_crystal_n_core_electrons is not None
+    assert method.x_crystal_n_symmops is not None
+    assert method.x_crystal_tol_coulomb_overlap is not None
+    assert method.x_crystal_tol_coulomb_penetration is not None
+    assert method.x_crystal_tol_exchange_overlap is not None
+    assert method.x_crystal_tol_pseudo_overlap_f is not None
+    assert method.x_crystal_tol_pseudo_overlap_p is not None
+    if method_type == "DFT":
+        assert method.x_crystal_toldee is not None
 
 if __name__ == "__main__":
     test_single_point_forces()
+    test_single_point_dft()
+    test_single_point_hf()
