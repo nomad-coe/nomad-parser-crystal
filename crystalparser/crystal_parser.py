@@ -2,6 +2,7 @@ import logging
 import datetime
 import re
 import numpy as np
+import ase
 
 from nomad.units import ureg
 from nomad.parsing.parser import FairdiParser
@@ -11,7 +12,8 @@ from nomad.datamodel.metainfo.public import section_run, section_method, section
     section_sampling_method, section_frame_sequence, section_eigenvalues, section_dos,\
     section_atom_projected_dos, section_species_projected_dos, section_k_band,\
     section_k_band_segment, section_energy_van_der_Waals, section_calculation_to_calculation_refs,\
-    section_method_to_method_refs
+    section_method_to_method_refs, section_basis_set_atom_centered
+from crystalparser.metainfo.crystal import x_crystal_section_shell
 
 
 def capture(regex):
@@ -135,6 +137,55 @@ class CrystalParser(FairdiParser):
                     repeats=False,
                 ),
                 # Method
+                Quantity(
+                    'basis_set',
+                    re.escape(r' *******************************************************************************') + 
+                    r'\n LOCAL ATOMIC FUNCTIONS BASIS SET\n' +
+                    re.escape(r' *******************************************************************************') +
+                    r'\n   ATOM   X\(AU\)   Y\(AU\)   Z\(AU\)  N. TYPE  EXPONENT  S COEF   P COEF   D/F/G COEF\n' + 
+                    r'([\s\S]*?)\n INFORMATION',
+                    sub_parser=UnstructuredTextFileParser(quantities=[
+                        Quantity(
+                            "basis_sets",
+                            fr'({ws}{integer}{ws}{word}{ws}{flt}{ws}{flt}{ws}{flt}\n(?:(?:\s+(?:\d+-\s+)?\d+\s+(?:S|P|SP|D|F|G)\s*\n[\s\S]*?(?:{ws}{flt}(?:{ws})?{flt}(?:{ws})?{flt}(?:{ws})?{flt}{br})+)+)?)',
+                            sub_parser=UnstructuredTextFileParser(quantities=[
+                                Quantity(
+                                    "species",
+                                    fr'({ws}{integer}{ws}{word}{ws}{flt}{ws}{flt}{ws}{flt}\n)',
+                                    repeats=False,
+                                ),
+                                Quantity(
+                                    "shells",
+                                    fr'(\s+(?:\d+-\s+)?\d+\s+(?:S|P|SP|D|F|G)\s*\n[\s\S]*?(?:{ws}{flt}(?:{ws})?{flt}(?:{ws})?{flt}(?:{ws})?{flt}{br})+)',
+                                    sub_parser=UnstructuredTextFileParser(quantities=[
+                                        Quantity(
+                                            "shell_range",
+                                            r'(\s+(?:\d+-\s+)?\d+)',
+                                            str_operation=lambda x: "".join(x.split()),
+                                            repeats=False,
+                                        ),
+                                        Quantity(
+                                            "shell_type",
+                                            r'((?:S|P|SP|D|F|G))\s*\n',
+                                            str_operation=lambda x: x.strip(),
+                                            repeats=False,
+                                        ),
+                                        Quantity(
+                                            "shell_coefficients",
+                                            fr'{ws}({flt})(?:{ws})?({flt})(?:{ws})?({flt})(?:{ws})?({flt}){br}',
+                                            repeats=True,
+                                            dtype=np.float64,
+                                            shape=(4)
+                                        ),
+                                    ]),
+                                    repeats=True,
+                                ),
+                            ]),
+                            repeats=True,
+                        ),
+                    ]),
+                    repeats=False,
+                ),
                 Quantity("fock_ks_matrix_mixing", r' INFORMATION \*+.*?\*+.*?\:\s+FOCK/KS MATRIX MIXING SET TO\s+' + integer_c + r'\s+\%\n*', repeats=False),
                 Quantity("coulomb_bipolar_buffer", r' INFORMATION \*+.*?\*+.*?\:\s+COULOMB BIPOLAR BUFFER SET TO\s+' + flt_c + r' Mb\n*', repeats=False),
                 Quantity("exchange_bipolar_buffer", r' INFORMATION \*+.*?\*+.*?\:\s+EXCHANGE BIPOLAR BUFFER SET TO\s+' + flt_c + r' Mb\n*', repeats=False),
@@ -298,6 +349,22 @@ class CrystalParser(FairdiParser):
         method.x_crystal_convergence_deltap = out["convergenge_deltap"]
         method.x_crystal_n_k_points_ibz = out["n_k_points_ibz"]
         method.x_crystal_n_k_points_gilat = out["n_k_points_gilat"]
+        basis_set = out["basis_set"]
+        covered_species = set()
+        for bs in basis_set["basis_sets"]:
+            atomic_number = to_atomic_number(bs["species"][1])
+            shells = bs["shells"]
+            if atomic_number != covered_species and shells is not None:
+                section_basis_set = section_basis_set_atom_centered()
+                section_basis_set.basis_set_atom_number = atomic_number
+                run.m_add_sub_section(section_run.section_basis_set_atom_centered, section_basis_set)
+                covered_species.add(atomic_number)
+                for shell in shells:
+                    section_shell = x_crystal_section_shell()
+                    section_shell.x_crystal_shell_range = str(shell["shell_range"])
+                    section_shell.x_crystal_shell_type = shell["shell_type"]
+                    section_shell.x_crystal_shell_coefficients = np.array(shell["shell_coefficients"])
+                    section_basis_set.m_add_sub_section(section_basis_set_atom_centered.x_crystal_section_shell, section_shell)
 
         # SCC
         scf_block = out["scf_block"]
@@ -325,6 +392,15 @@ def to_float(value):
     base = int(base)
     exponent = int("".join(exponent.split()))
     return pow(base, exponent)
+
+
+def to_atomic_number(value):
+    """Given a Crystal specific uppercase species name, returns the
+    corresponding atomic number.
+    """
+    symbol = value.lower().capitalize()
+    atomic_number = ase.data.atomic_numbers[symbol]
+    return atomic_number
 
 
 def to_unix_time(value):

@@ -1,4 +1,5 @@
 import pytest
+import numpy as np
 from crystalparser import CrystalParser
 from nomad.datamodel import EntryArchive
 
@@ -129,7 +130,15 @@ def asserts_code_specific(archive, method_type="DFT", system_type="3D", vdw=None
     if method_type == "DFT":
         assert method.x_crystal_toldee is not None
 
+    bases = run.section_basis_set_atom_centered
+    for basis in bases:
+        assert isinstance(basis.basis_set_atom_number, np.int32)
+        for shell in basis.x_crystal_section_shell:
+            assert shell.x_crystal_shell_type is not None
+            assert shell.x_crystal_shell_range is not None
+            assert shell.x_crystal_shell_coefficients.shape[1] == 4
+
 if __name__ == "__main__":
     test_single_point_forces()
-    test_single_point_dft()
-    test_single_point_hf()
+    # test_single_point_dft()
+    # test_single_point_hf()
