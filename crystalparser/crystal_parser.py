@@ -23,7 +23,6 @@ flt = r'-?(?:\d+\.?\d*|\d*\.?\d+)(?:E[\+-]?\d+)?' # Floating point number
 flt_c = capture(flt)                              # Captures a floating point number
 flt_crystal_c = r'(-?\d+(?:.\d+)?\*\*-?.*\d+)'    # Crystal specific floating point syntax
 ws = r'\s+'                                       # Series of white-space characters
-br = r'\n'                                        # Line break
 integer = r'-?\d+'                                # Integer number
 integer_c = capture(integer)                      # Captures integer number
 word = r'[a-zA-Z]+'                               # A single alphanumeric word
@@ -108,6 +107,18 @@ class CrystalParser(FairdiParser):
                 Quantity("start_timestamp", r' EEEEEEEEEE STARTING  DATE\s+(.*? TIME .*?)\n', str_operation=lambda x: x, repeats=False),
                 Quantity("title", r' EEEEEEEEEE STARTING  DATE.*?\n\s*(.*?)\n\n', str_operation=lambda x: x, repeats=False),
 
+                # Geometry optimization settings
+                Quantity('initial_trust_radius', fr' INITIAL TRUST RADIUS\s+{flt_c}', repeats=False),
+                Quantity('maximum_trust_radius', fr' MAXIMUM TRUST RADIUS\s+{flt_c}', repeats=False),
+                Quantity('maximum_gradient_component', fr' MAXIMUM GRADIENT COMPONENT\s+{flt_c}', repeats=False),
+                Quantity('rms_gradient_component', fr' R\.M\.S\. OF GRADIENT COMPONENT\s+{flt_c}', repeats=False),
+                Quantity('rms_displacement_component', fr' R\.M\.S\. OF DISPLACEMENT COMPONENTS\s+{flt_c}', repeats=False),
+                Quantity('geometry_change', fr' MAXIMUM DISPLACEMENT COMPONENT\s+{flt_c}', unit=ureg.bohr, repeats=False),
+                Quantity('energy_change', fr' THRESHOLD ON ENERGY CHANGE\s+{flt_c}', unit=ureg.hartree, repeats=False),
+                Quantity('extrapolating_polynomial_order', fr' EXTRAPOLATING POLYNOMIAL ORDER{ws}{integer_c}', repeats=False),
+                Quantity('max_steps', fr' MAXIMUM ALLOWED NUMBER OF STEPS\s+{integer_c}', repeats=False),
+                Quantity('sorting_of_energy_points', fr'SORTING OF ENERGY POINTS\:\s+{word_c}', repeats=False),
+
                 # System
                 Quantity("dimensionality",
                     r' GEOMETRY FOR WAVE FUNCTION - DIMENSIONALITY OF THE SYSTEM\s+(\d)',
@@ -117,9 +128,9 @@ class CrystalParser(FairdiParser):
                     "lattice_vectors",
                     r'\s*DIRECT LATTICE VECTORS CARTESIAN COMPONENTS \(ANGSTROM\)\s*'
                     r'          X                    Y                    Z' +
-                    ws + flt_c + ws + flt_c + ws + flt_c + ws +
-                    ws + flt_c + ws + flt_c + ws + flt_c + ws +
-                    ws + flt_c + ws + flt_c + ws + flt_c + ws,
+                    fr'{ws}{flt_c}{ws}{flt_c}{ws}{flt_c}\n' + 
+                    fr'{ws}{flt_c}{ws}{flt_c}{ws}{flt_c}\n' + 
+                    fr'{ws}{flt_c}{ws}{flt_c}{ws}{flt_c}\n',
                     unit=ureg.angstrom,
                     shape=(3, 3),
                     dtype=np.float64,
@@ -136,6 +147,7 @@ class CrystalParser(FairdiParser):
                     dtype=str,
                     repeats=False,
                 ),
+
                 # Method
                 Quantity(
                     'basis_set',
@@ -147,7 +159,7 @@ class CrystalParser(FairdiParser):
                     sub_parser=UnstructuredTextFileParser(quantities=[
                         Quantity(
                             "basis_sets",
-                            fr'({ws}{integer}{ws}{word}{ws}{flt}{ws}{flt}{ws}{flt}\n(?:(?:\s+(?:\d+-\s+)?\d+\s+(?:S|P|SP|D|F|G)\s*\n[\s\S]*?(?:{ws}{flt}(?:{ws})?{flt}(?:{ws})?{flt}(?:{ws})?{flt}{br})+)+)?)',
+                            fr'({ws}{integer}{ws}{word}{ws}{flt}{ws}{flt}{ws}{flt}\n(?:(?:\s+(?:\d+-\s+)?\d+\s+(?:S|P|SP|D|F|G)\s*\n[\s\S]*?(?:{ws}{flt}(?:{ws})?{flt}(?:{ws})?{flt}(?:{ws})?{flt}\n)+)+)?)',
                             sub_parser=UnstructuredTextFileParser(quantities=[
                                 Quantity(
                                     "species",
@@ -156,7 +168,7 @@ class CrystalParser(FairdiParser):
                                 ),
                                 Quantity(
                                     "shells",
-                                    fr'(\s+(?:\d+-\s+)?\d+\s+(?:S|P|SP|D|F|G)\s*\n[\s\S]*?(?:{ws}{flt}(?:{ws})?{flt}(?:{ws})?{flt}(?:{ws})?{flt}{br})+)',
+                                    fr'(\s+(?:\d+-\s+)?\d+\s+(?:S|P|SP|D|F|G)\s*\n[\s\S]*?(?:{ws}{flt}(?:{ws})?{flt}(?:{ws})?{flt}(?:{ws})?{flt}\n)+)',
                                     sub_parser=UnstructuredTextFileParser(quantities=[
                                         Quantity(
                                             "shell_range",
@@ -172,7 +184,7 @@ class CrystalParser(FairdiParser):
                                         ),
                                         Quantity(
                                             "shell_coefficients",
-                                            fr'{ws}({flt})(?:{ws})?({flt})(?:{ws})?({flt})(?:{ws})?({flt}){br}',
+                                            fr'{ws}({flt})(?:{ws})?({flt})(?:{ws})?({flt})(?:{ws})?({flt})\n',
                                             repeats=True,
                                             dtype=np.float64,
                                             shape=(4)
@@ -213,6 +225,8 @@ class CrystalParser(FairdiParser):
                 Quantity('n_k_points_ibz', r'NUMBER OF K POINTS IN THE IBZ\s+' + integer_c, repeats=False),
                 Quantity('shrink_gilat', r'SHRINKING FACTOR\(GILAT NET\)\s+' + integer_c, repeats=False),
                 Quantity('n_k_points_gilat', r'NUMBER OF K POINTS\(GILAT NET\)\s+' + integer_c, repeats=False),
+
+                # SCF
                 Quantity(
                     "scf_block",
                     r' CHARGE NORMALIZATION FACTOR([\s\S]*?) == SCF ENDED',
@@ -221,15 +235,15 @@ class CrystalParser(FairdiParser):
                             'scf_iterations',
                             r'( CHARGE NORMALIZATION FACTOR[\s\S]*? TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT PDIG)',
                             sub_parser=UnstructuredTextFileParser(quantities=[
-                                Quantity('charge_normalization_factor', r' CHARGE NORMALIZATION FACTOR' + ws + flt + br, repeats=False),
-                                Quantity('total_atomic_charges', r' TOTAL ATOMIC CHARGES:\n(?:' + ws + flt + r')+' + br, repeats=False),
-                                Quantity('QGAM', r' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT QGAM        TELAPSE' + ws + flt + ws + r'TCPU' + ws + flt + br, repeats=False),
-                                Quantity('BIEL2', r' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT BIEL2        TELAPSE' + ws + flt + ws + r'TCPU' + ws + flt + br, repeats=False),
-                                Quantity('TOTENY', r' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT TOTENY        TELAPSE' + ws + flt + ws + r'TCPU' + ws + flt + br, repeats=False),
-                                Quantity('integrated_density', r' NUMERICALLY INTEGRATED DENSITY' + ws + flt + br, repeats=False),
-                                Quantity('NUMDFT', r' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT NUMDFT        TELAPSE' + ws + flt + ws + r'TCPU' + ws + flt + br, repeats=False),
-                                Quantity('energies', r' CYC' + ws + integer + ws + r'ETOT\(AU\)' + ws + flt_c + ws + r'DETOT' + ws + flt_c + ws + r'tst' + ws + flt + ws + r'PX' + ws + flt + br, repeats=False, dtype=np.float64, unit=ureg.hartree),
-                                Quantity('FDIK', r' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT FDIK        TELAPSE' + ws + flt + ws + r'TCPU' + ws + flt + br, repeats=False),
+                                Quantity('charge_normalization_factor', fr' CHARGE NORMALIZATION FACTOR{ws}{flt}\n', repeats=False),
+                                Quantity('total_atomic_charges', fr' TOTAL ATOMIC CHARGES:\n(?:{ws}{flt})+\n', repeats=False),
+                                Quantity('QGAM', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT QGAM        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}\n', repeats=False),
+                                Quantity('BIEL2', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT BIEL2        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}\n', repeats=False),
+                                Quantity('TOTENY', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT TOTENY        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}\n', repeats=False),
+                                Quantity('integrated_density', fr' NUMERICALLY INTEGRATED DENSITY{ws}{flt}\n', repeats=False),
+                                Quantity('NUMDFT', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT NUMDFT        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}\n', repeats=False),
+                                Quantity('energies', fr' CYC{ws}{integer}{ws}ETOT\(AU\){ws}{flt_c}{ws}DETOT{ws}{flt_c}{ws}tst{ws}{flt}{ws}PX{ws}{flt}\n', repeats=False, dtype=np.float64, unit=ureg.hartree),
+                                Quantity('FDIK', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT FDIK        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}\n', repeats=False),
                             ]),
                             repeats=True,
                         ),
@@ -243,6 +257,36 @@ class CrystalParser(FairdiParser):
                     unit=ureg.hartree,
                     repeats=False,
                 ),
+
+                # Geometry optimization steps
+                Quantity(
+                    "geo_opt",
+                    re.escape(r' *******************************************************************************') + r'\n' +
+                    r' \*                             OPTIMIZATION STARTS                             \*\n' +
+                    r'([\s\S]*?)' + 
+                    re.escape(r' ******************************************************************') + r'\n' +
+                    fr'\s*\* OPT END - CONVERGED \* E\(AU\)\:\s+{flt}\s+POINTS\s+{integer}\s+\*\n',
+                    # sub_parser=UnstructuredTextFileParser(quantities=[
+                        # Quantity(
+                            # 'geo_opt_step',
+                            # r'( CHARGE NORMALIZATION FACTOR[\s\S]*? TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT PDIG)',
+                            # sub_parser=UnstructuredTextFileParser(quantities=[
+                                # Quantity('charge_normalization_factor', fr' CHARGE NORMALIZATION FACTOR{ws}{flt}\n', repeats=False),
+                                # Quantity('total_atomic_charges', fr' TOTAL ATOMIC CHARGES:\n(?:{ws}{flt})+\n', repeats=False),
+                                # Quantity('QGAM', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT QGAM        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}\n', repeats=False),
+                                # Quantity('BIEL2', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT BIEL2        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}\n', repeats=False),
+                                # Quantity('TOTENY', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT TOTENY        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}\n', repeats=False),
+                                # Quantity('integrated_density', fr' NUMERICALLY INTEGRATED DENSITY{ws}{flt}\n', repeats=False),
+                                # Quantity('NUMDFT', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT NUMDFT        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}\n', repeats=False),
+                                # Quantity('energies', fr' CYC{ws}{integer}{ws}ETOT\(AU\){ws}{flt_c}{ws}DETOT{ws}{flt_c}{ws}tst{ws}{flt}{ws}PX{ws}{flt}\n', repeats=False, dtype=np.float64, unit=ureg.hartree),
+                                # Quantity('FDIK', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT FDIK        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}\n', repeats=False),
+                            # ]),
+                            # repeats=True,
+                        # ),
+                    # ]),
+                    repeats=False,
+                ),
+
                 # Forces
                 Quantity(
                     'forces',
@@ -382,6 +426,22 @@ class CrystalParser(FairdiParser):
         forces = out["forces"]
         if forces is not None:
             scc.atom_forces = forces[:, 2:].astype(float) * ureg.hartree/ureg.bohr
+
+        # Sampling
+        geo_opt = out["geo_opt"]
+        if geo_opt is not None:
+            sampling_method = section_sampling_method()
+            sampling_method.sampling_method = "geometry_optimization"
+            sampling_method.geometry_optimization_energy_change = out["energy_change"]
+            sampling_method.geometry_optimization_geometry_change = out["geometry_change"]
+            run.m_add_sub_section(section_run.section_sampling_method, sampling_method) 
+
+            # Try to read the geometries from external file
+            # TODO
+
+            # Try to read the SCF output from external file
+            # TODO
+
 
 
 def to_float(value):

@@ -10,7 +10,7 @@ def test_single_point_dft():
     filepath = "./single_point/dft/output.out"
     archive = parse(filepath)
     asserts_basic(archive)
-    asserts_code_specific(archive, vdw="DFT-D3", forces=True)
+    asserts_basic_code_specific(archive, vdw="DFT-D3", forces=True)
 
 
 def test_single_point_hf():
@@ -19,7 +19,8 @@ def test_single_point_hf():
     filepath = "./single_point/hf/output.out"
     archive = parse(filepath)
     asserts_basic(archive, method_type="HF")
-    asserts_code_specific(archive, method_type="HF")
+    asserts_basic_code_specific(archive, method_type="HF")
+
 
 def test_single_point_forces():
     """Tests that forces are correctly parsed.
@@ -27,8 +28,17 @@ def test_single_point_forces():
     filepath = "./single_point/forces/HfS2_PBE0D3_ZD_fc3_supercell-00001.o"
     archive = parse(filepath)
     asserts_basic(archive, vdw="DFT-D3", forces=True)
-    asserts_code_specific(archive)
+    asserts_basic_code_specific(archive)
 
+
+def test_geo_opt():
+    """Tests that geometry optimization is parsed correctly.
+    """
+    filepath = "./geo_opt/nio_tzvp_pbe0_opt.o"
+    archive = parse(filepath)
+    asserts_basic(archive)
+    asserts_basic_code_specific(archive)
+    asserts_geo_opt(archive)
 
 def parse(filepath):
     parser = CrystalParser()
@@ -80,7 +90,7 @@ def asserts_basic(archive, method_type="DFT", system_type="3D", vdw=None, forces
             assert scc.atom_forces is not None
             assert scc.atom_forces.shape[0] == n_atoms
 
-def asserts_code_specific(archive, method_type="DFT", system_type="3D", vdw=None, forces=False):
+def asserts_basic_code_specific(archive, method_type="DFT", system_type="3D", vdw=None, forces=False):
     run = archive.section_run[0]
     systems = run.section_system
     method = run.section_method[0]
@@ -138,7 +148,15 @@ def asserts_code_specific(archive, method_type="DFT", system_type="3D", vdw=None
             assert shell.x_crystal_shell_range is not None
             assert shell.x_crystal_shell_coefficients.shape[1] == 4
 
+def asserts_geo_opt(archive, method_type="DFT", system_type="3D", vdw=None, forces=False):
+    run = archive.section_run[0]
+    sampling_method = run.section_sampling_method[0]
+    assert sampling_method.sampling_method == "geometry_optimization"
+    assert sampling_method.geometry_optimization_energy_change is not None
+    assert sampling_method.geometry_optimization_geometry_change is not None
+
 if __name__ == "__main__":
-    test_single_point_forces()
+    # test_single_point_forces()
     # test_single_point_dft()
     # test_single_point_hf()
+    test_geo_opt()

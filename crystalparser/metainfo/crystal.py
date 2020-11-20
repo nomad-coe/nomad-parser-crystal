@@ -1006,6 +1006,38 @@ class x_crystal_section_frequency(MSection):
         a_legacy=LegacyDefinition(name='x_crystal_section_frequency_gradients'))
 
 
+class x_crystal_section_frequency_atom(MSection):
+    '''
+    Frequency calculation setup: atom masses.
+    '''
+
+    m_def = Section(validate=False, a_legacy=LegacyDefinition(name='x_crystal_section_frequency_atom'))
+
+    x_crystal_frequency_atom_element = Quantity(
+        type=str,
+        shape=[],
+        description='''
+        Atom label.
+        ''',
+        a_legacy=LegacyDefinition(name='x_crystal_frequency_atom_element'))
+
+    x_crystal_frequency_atom_label = Quantity(
+        type=np.dtype(np.int32),
+        shape=[],
+        description='''
+        Atom label.
+        ''',
+        a_legacy=LegacyDefinition(name='x_crystal_frequency_atom_label'))
+
+    x_crystal_frequency_atom_mass = Quantity(
+        type=np.dtype(np.float64),
+        shape=[],
+        description='''
+        Mass in AMU.
+        ''',
+        a_legacy=LegacyDefinition(name='x_crystal_frequency_atom_mass'))
+
+
 class x_crystal_section_irlo_modes_atom_mode(MSection):
     '''
     Mode
@@ -4038,11 +4070,6 @@ class section_system(public.section_system):
         ''',
         a_legacy=LegacyDefinition(name='x_crystal_pointgroup_corresponding_spacegroup'))
 
-    # x_crystal_section_basis_set = SubSection(
-        # sub_section=SectionProxy('x_crystal_section_basis_set'),
-        # repeats=True,
-        # a_legacy=LegacyDefinition(name='x_crystal_section_basis_set'))
-
     x_crystal_section_cell = SubSection(
         sub_section=SectionProxy('x_crystal_section_cell'),
         repeats=True,
@@ -4057,11 +4084,6 @@ class section_system(public.section_system):
         sub_section=SectionProxy('x_crystal_section_frequency'),
         repeats=True,
         a_legacy=LegacyDefinition(name='x_crystal_section_frequency'))
-
-    x_crystal_section_info = SubSection(
-        sub_section=SectionProxy('x_crystal_section_info'),
-        repeats=True,
-        a_legacy=LegacyDefinition(name='x_crystal_section_info'))
 
     x_crystal_section_kpoints = SubSection(
         sub_section=SectionProxy('x_crystal_section_kpoints'),
