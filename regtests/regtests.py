@@ -40,6 +40,7 @@ def test_geo_opt():
     asserts_basic_code_specific(archive)
     asserts_geo_opt(archive)
 
+
 def parse(filepath):
     parser = CrystalParser()
     archive = EntryArchive()
@@ -55,8 +56,6 @@ def asserts_basic(archive, method_type="DFT", system_type="3D", vdw=None, forces
     sccs = run.section_single_configuration_calculation
     n_atoms = len(systems[0].atom_species)
 
-    assert run.program_name == "Crystal"
-    assert run.program_basis_set_type == "gaussians"
     assert run.time_run_date_start is not None
     assert run.time_run_date_end is not None
 
@@ -81,11 +80,15 @@ def asserts_basic(archive, method_type="DFT", system_type="3D", vdw=None, forces
 
     for scc in sccs:
         assert scc.energy_total is not None
-        assert scc.number_of_scf_iterations is not None
-        assert scc.single_configuration_calculation_converged is True
-        for scf in scc.section_scf_iteration:
-            assert scf.energy_total_scf_iteration is not None
-            assert scf.energy_change_scf_iteration is not None
+        assert scc.single_configuration_calculation_to_system_ref is not None
+        assert scc.single_configuration_to_calculation_method_ref is not None
+        scf = scc.section_scf_iteration
+        if scf:
+            assert scc.single_configuration_calculation_converged is True
+            assert scc.number_of_scf_iterations is not None
+            for scf in scc.section_scf_iteration:
+                assert scf.energy_total_scf_iteration is not None
+                assert scf.energy_change_scf_iteration is not None
         if forces:
             assert scc.atom_forces is not None
             assert scc.atom_forces.shape[0] == n_atoms
@@ -96,6 +99,9 @@ def asserts_basic_code_specific(archive, method_type="DFT", system_type="3D", vd
     method = run.section_method[0]
     sccs = run.section_single_configuration_calculation
     n_atoms = len(systems[0].atom_species)
+
+    assert run.program_name == "Crystal"
+    assert run.program_basis_set_type == "gaussians"
 
     assert run.x_crystal_run_title is not None
     assert run.x_crystal_hostname is not None
@@ -151,12 +157,17 @@ def asserts_basic_code_specific(archive, method_type="DFT", system_type="3D", vd
 def asserts_geo_opt(archive, method_type="DFT", system_type="3D", vdw=None, forces=False):
     run = archive.section_run[0]
     sampling_method = run.section_sampling_method[0]
+    fs = run.section_frame_sequence[0]
     assert sampling_method.sampling_method == "geometry_optimization"
     assert sampling_method.geometry_optimization_energy_change is not None
     assert sampling_method.geometry_optimization_geometry_change is not None
+    assert sampling_method.geometry_optimization_geometry_change is not None
+    assert fs.frame_sequence_local_frames_ref is not None
+    assert fs.number_of_frames_in_sequence is not None
+    assert fs.geometry_optimization_converged is True
 
 if __name__ == "__main__":
-    # test_single_point_forces()
-    # test_single_point_dft()
-    # test_single_point_hf()
+    test_single_point_forces()
+    test_single_point_dft()
+    test_single_point_hf()
     test_geo_opt()

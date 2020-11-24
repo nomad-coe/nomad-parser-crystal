@@ -5,6 +5,7 @@ import numpy as np
 import ase
 
 from nomad.units import ureg
+from nomad import atomutils
 from nomad.parsing.parser import FairdiParser
 from nomad.parsing.file_parser import UnstructuredTextFileParser, Quantity
 from nomad.datamodel.metainfo.public import section_run, section_method, section_system,\
@@ -125,28 +126,59 @@ class CrystalParser(FairdiParser):
                     repeats=False
                 ),
                 Quantity(
-                    "lattice_vectors",
-                    r'\s*DIRECT LATTICE VECTORS CARTESIAN COMPONENTS \(ANGSTROM\)\s*'
-                    r'          X                    Y                    Z' +
-                    fr'{ws}{flt_c}{ws}{flt_c}{ws}{flt_c}\n' + 
-                    fr'{ws}{flt_c}{ws}{flt_c}{ws}{flt_c}\n' + 
-                    fr'{ws}{flt_c}{ws}{flt_c}{ws}{flt_c}\n',
-                    unit=ureg.angstrom,
-                    shape=(3, 3),
+                    'lattice_parameters',
+                    fr' PRIMITIVE CELL - CENTRING CODE [\s\S]*?VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3\n' +
+                    fr'         A              B              C           ALPHA      BETA       GAMMA\s*' +
+                    fr'{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\n',
+                    shape=(6),
                     dtype=np.float64,
                     repeats=False,
                 ),
                 Quantity(
-                    'labels_positions',
-                    r'\s*CARTESIAN COORDINATES \- PRIMITIVE CELL\s*' + 
-                    re.escape(r' *******************************************************************************') + 
-                    r'\s*\*      ATOM          X\(ANGSTROM\)         Y\(ANGSTROM\)         Z\(ANGSTROM\)\s*' +
-                    re.escape(r' *******************************************************************************') +
-                    r'((?:' + ws + integer + ws + integer + ws + word + ws + flt + ws + flt + ws + flt + r'\n)*)',
-                    shape=(-1, 6),
+                    "labels_positions",
+                    fr' ATOMS IN THE ASYMMETRIC UNIT\s+{integer} - ATOMS IN THE UNIT CELL:\s+{integer}\n' +
+                    fr'     ATOM              X/A                 Y/B                 Z/C\s*\n' +
+                    re.escape(' *******************************************************************************') +
+                    fr'((?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}\n)+)',
+                    shape=(-1, 7),
                     dtype=str,
                     repeats=False,
                 ),
+                # Quantity(
+                    # "lattice_vectors",
+                    # r'\s*DIRECT LATTICE VECTORS CARTESIAN COMPONENTS \(ANGSTROM\)\s*'
+                    # r'          X                    Y                    Z' +
+                    # fr'{ws}{flt_c}{ws}{flt_c}{ws}{flt_c}\n' + 
+                    # fr'{ws}{flt_c}{ws}{flt_c}{ws}{flt_c}\n' + 
+                    # fr'{ws}{flt_c}{ws}{flt_c}{ws}{flt_c}\n',
+                    # unit=ureg.angstrom,
+                    # shape=(3, 3),
+                    # dtype=np.float64,
+                    # repeats=False,
+                # ),
+                # Quantity(
+                    # "lattice_vectors",
+                    # r'\s*DIRECT LATTICE VECTORS CARTESIAN COMPONENTS \(ANGSTROM\)\s*'
+                    # r'          X                    Y                    Z' +
+                    # fr'{ws}{flt_c}{ws}{flt_c}{ws}{flt_c}\n' + 
+                    # fr'{ws}{flt_c}{ws}{flt_c}{ws}{flt_c}\n' + 
+                    # fr'{ws}{flt_c}{ws}{flt_c}{ws}{flt_c}\n',
+                    # unit=ureg.angstrom,
+                    # shape=(3, 3),
+                    # dtype=np.float64,
+                    # repeats=False,
+                # ),
+                # Quantity(
+                    # 'labels_positions',
+                    # r'\s*CARTESIAN COORDINATES \- PRIMITIVE CELL\s*' + 
+                    # re.escape(r' *******************************************************************************') + 
+                    # r'\s*\*      ATOM          X\(ANGSTROM\)         Y\(ANGSTROM\)         Z\(ANGSTROM\)\s*' +
+                    # re.escape(r' *******************************************************************************') +
+                    # r'((?:' + ws + integer + ws + integer + ws + word + ws + flt + ws + flt + ws + flt + r'\n)*)',
+                    # shape=(-1, 6),
+                    # dtype=str,
+                    # repeats=False,
+                # ),
 
                 # Method
                 Quantity(
@@ -263,27 +295,41 @@ class CrystalParser(FairdiParser):
                     "geo_opt",
                     re.escape(r' *******************************************************************************') + r'\n' +
                     r' \*                             OPTIMIZATION STARTS                             \*\n' +
-                    r'([\s\S]*?)' + 
+                    r'([\s\S]*?' + 
                     re.escape(r' ******************************************************************') + r'\n' +
-                    fr'\s*\* OPT END - CONVERGED \* E\(AU\)\:\s+{flt}\s+POINTS\s+{integer}\s+\*\n',
-                    # sub_parser=UnstructuredTextFileParser(quantities=[
-                        # Quantity(
-                            # 'geo_opt_step',
-                            # r'( CHARGE NORMALIZATION FACTOR[\s\S]*? TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT PDIG)',
-                            # sub_parser=UnstructuredTextFileParser(quantities=[
-                                # Quantity('charge_normalization_factor', fr' CHARGE NORMALIZATION FACTOR{ws}{flt}\n', repeats=False),
-                                # Quantity('total_atomic_charges', fr' TOTAL ATOMIC CHARGES:\n(?:{ws}{flt})+\n', repeats=False),
-                                # Quantity('QGAM', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT QGAM        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}\n', repeats=False),
-                                # Quantity('BIEL2', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT BIEL2        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}\n', repeats=False),
-                                # Quantity('TOTENY', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT TOTENY        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}\n', repeats=False),
-                                # Quantity('integrated_density', fr' NUMERICALLY INTEGRATED DENSITY{ws}{flt}\n', repeats=False),
-                                # Quantity('NUMDFT', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT NUMDFT        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}\n', repeats=False),
-                                # Quantity('energies', fr' CYC{ws}{integer}{ws}ETOT\(AU\){ws}{flt_c}{ws}DETOT{ws}{flt_c}{ws}tst{ws}{flt}{ws}PX{ws}{flt}\n', repeats=False, dtype=np.float64, unit=ureg.hartree),
-                                # Quantity('FDIK', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT FDIK        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}\n', repeats=False),
-                            # ]),
-                            # repeats=True,
-                        # ),
-                    # ]),
+                    fr'\s*\* OPT END - CONVERGED \* E\(AU\)\:\s+{flt}\s+POINTS\s+{integer})\s+\*\n',
+                    sub_parser=UnstructuredTextFileParser(quantities=[
+                        Quantity(
+                            'geo_opt_step',
+                            fr' COORDINATE AND CELL OPTIMIZATION - POINT\s+{integer}\n' +
+                            fr'([\s\S]*?)' +
+                            fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT OPTI',
+                            sub_parser=UnstructuredTextFileParser(quantities=[
+                                Quantity(
+                                    'lattice_parameters',
+                                    fr' PRIMITIVE CELL - CENTRING CODE [\s\S]*?VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3\n' +
+                                    fr'         A              B              C           ALPHA      BETA       GAMMA\s*' +
+                                    fr'{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\n',
+                                    shape=(6),
+                                    dtype=np.float64,
+                                    repeats=False,
+                                ),
+                                Quantity(
+                                    "labels_positions",
+                                    fr' ATOMS IN THE ASYMMETRIC UNIT\s+{integer} - ATOMS IN THE UNIT CELL:\s+{integer}\n' +
+                                    fr'     ATOM              X/A                 Y/B                 Z/C\s*\n' +
+                                    re.escape(' *******************************************************************************') +
+                                    fr'((?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}\n)+)',
+                                    shape=(-1, 7),
+                                    dtype=str,
+                                    repeats=False,
+                                ),
+                                Quantity('energy', fr' TOTAL ENERGY\({word}\)\(AU\)\(\s*{integer}\)\s*{flt_c}', repeats=False),
+                            ]),
+                            repeats=True,
+                        ),
+                        Quantity('converged', fr' \* OPT END - ([\s\S]*?) \* E\(AU\)\:\s+{flt}\s+POINTS\s+{integer}\s+\*\n', repeats=False),
+                    ]),
                     repeats=False,
                 ),
 
@@ -333,10 +379,11 @@ class CrystalParser(FairdiParser):
 
         # System
         system = run.m_create(section_system)
-        system.lattice_vectors = out.lattice_vectors
-        system.atom_positions = out.labels_positions[:, 3:].astype(float) * ureg.angstrom
-        system.atom_species = out.labels_positions[:, 1].astype(int)
-        dimensionality = out.dimensionality
+        atom_species, cart_positions, lattice_vectors = to_system(out["lattice_parameters"], out["labels_positions"])
+        system.lattice_vectors = lattice_vectors
+        system.atom_positions = cart_positions
+        system.atom_species = atom_species
+        dimensionality = out["dimensionality"]
         pbc = np.array([False, False, False])
         pbc[0:dimensionality] = True
         system.configuration_periodic_dimensions = pbc
@@ -426,22 +473,66 @@ class CrystalParser(FairdiParser):
         forces = out["forces"]
         if forces is not None:
             scc.atom_forces = forces[:, 2:].astype(float) * ureg.hartree/ureg.bohr
+        scc.single_configuration_calculation_to_system_ref = system
+        scc.single_configuration_to_calculation_method_ref = method
 
         # Sampling
         geo_opt = out["geo_opt"]
         if geo_opt is not None:
-            sampling_method = section_sampling_method()
-            sampling_method.sampling_method = "geometry_optimization"
-            sampling_method.geometry_optimization_energy_change = out["energy_change"]
-            sampling_method.geometry_optimization_geometry_change = out["geometry_change"]
-            run.m_add_sub_section(section_run.section_sampling_method, sampling_method) 
+            steps = geo_opt["geo_opt_step"]
+            if steps is not None:
+                sampling_method = section_sampling_method()
+                sampling_method.sampling_method = "geometry_optimization"
+                sampling_method.geometry_optimization_energy_change = out["energy_change"]
+                sampling_method.geometry_optimization_geometry_change = out["geometry_change"]
+                run.m_add_sub_section(section_run.section_sampling_method, sampling_method) 
+                fs = section_frame_sequence()
+                run.m_add_sub_section(section_run.section_frame_sequence, fs) 
 
-            # Try to read the geometries from external file
-            # TODO
+                # First step is special: it refers to the initial system which
+                # was printed before entering the geometry optimization loop.
+                i_system = system
+                i_energy = steps[0]["energy"]
+                scc.energy_total = i_energy
 
-            # Try to read the SCF output from external file
-            # TODO
+                frames = []
+                for step in steps[1:]:
+                    i_scc = section_single_configuration_calculation()
+                    i_system = section_system()
+                    i_energy = step["energy"]
+                    i_positions_labels = step["labels_positions"]
+                    i_lattice_parameters = step["lattice_parameters"]
+                    i_atom_species, i_cart_pos, i_lattice_vectors = to_system(i_lattice_parameters, i_positions_labels)
+                    i_system.atom_species = i_atom_species
+                    i_system.atom_positions = i_cart_pos
+                    i_system.lattice_vectors = i_lattice_vectors
+                    i_system.configuration_periodic_dimensions = pbc
+                    i_scc.energy_total = i_energy
 
+                    i_scc.single_configuration_calculation_to_system_ref = i_system
+                    i_scc.single_configuration_to_calculation_method_ref = method
+
+                    run.m_add_sub_section(section_run.section_system, i_system)
+                    run.m_add_sub_section(section_run.section_single_configuration_calculation, i_scc)
+                    frames.append(i_scc)
+
+                fs.frame_sequence_local_frames_ref = frames
+                fs.number_of_frames_in_sequence = len(fs.frame_sequence_local_frames_ref)
+                fs.frame_sequence_to_sampling_ref = sampling_method
+                fs.geometry_optimization_converged = geo_opt["converged"] == "CONVERGED"
+
+
+def to_system(lattice_parameters, labels_positions):
+    """Converts the primitive cell reported by Crystal into the corresponding
+    species, cartesian positions and lattice vectors.
+    """
+    atom_species = labels_positions[:, 2].astype(int)
+    lattice_vectors = atomutils.cellpar_to_cell(lattice_parameters, degrees=True)
+    scaled_pos = labels_positions[:, 4:8].astype(float)
+    wrapped_pos = atomutils.wrap_positions(scaled_pos)
+    cart_pos = atomutils.to_cartesian(wrapped_pos, lattice_vectors)
+
+    return atom_species, cart_pos * ureg.angstrom, lattice_vectors * ureg.angstrom
 
 
 def to_float(value):
