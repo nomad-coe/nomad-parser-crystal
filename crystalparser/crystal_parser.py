@@ -628,11 +628,24 @@ class CrystalParser(FairdiParser):
                 if os.path.exists(f25_filepath):
                     f25 = self.parse_f25(f25_filepath)
                     segments = f25["segments"]
+                    prev_energy = None
+                    prev_k_point = None
                     for i_seg, segment in enumerate(segments):
                         dimensions = segment["dimensions"]
                         energies = segment["energies"]
                         energies = to_array(dimensions[0], dimensions[1], energies)
-                        section_band.section_k_band_segment[i_seg].band_energies = energies[None, :]
+
+                        # If a segment starts from the previous point, then
+                        # re-report the energy. This way segments get the same
+                        # treatment in the metainfo whether they are continuous
+                        # or not.
+                        start_k_point = section_band.section_k_band_segment[i_seg].band_k_points[0]
+                        end_k_point = section_band.section_k_band_segment[i_seg].band_k_points[-1]
+                        if prev_k_point is not None and np.allclose(prev_k_point, start_k_point):
+                            energies = np.concatenate(([prev_energy], energies), axis=0)
+                        section_band.section_k_band_segment[i_seg].band_energies = energies[None, :] * ureg.hartree
+                        prev_energy = energies[-1]
+                        prev_k_point = end_k_point
                     scc.m_add_sub_section(section_single_configuration_calculation.section_k_band, section_band)
 
         # Sampling
@@ -697,19 +710,17 @@ def to_k_points(segments):
         shrinking_factor = segment["shrinking_factor"]
         n_steps = segment["n_steps"]
 
-        # When segments start from where the old segment left of, the staring point
-        # is not recalculated.
-        start_idx = 1
+        # Segments that do not start from a previous segment get special
+        # treatment. 
         end_idx = n_steps + 1
         if prev_point is None or not np.allclose(prev_point, start):
-            start_idx = 0
             end_idx = n_steps
             n_steps = n_steps - 1
 
         delta = end - start
         start_step = (shrinking_factor*start).astype(np.int)
         step_size = (shrinking_factor*delta/n_steps).astype(np.int)
-        steps = (start_step + step_size* np.arange(start_idx, end_idx)[:, None])
+        steps = (start_step + step_size* np.arange(0, end_idx)[:, None])
         k_points = steps/shrinking_factor
         all_k_points.append(k_points)
         prev_point = end
