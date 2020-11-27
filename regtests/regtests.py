@@ -53,6 +53,7 @@ def test_band_structure():
     method = run.section_method[0]
     assert method.XC_functional == "1.0*HF_X"
 
+
 def test_band_structure_missing():
     """This band structure is missing the f25 file so not output should be
     generated for band structure. The functional should still be possible to
@@ -119,6 +120,7 @@ def asserts_basic(archive, method_type="DFT", system_type="3D", vdw=None, forces
             assert scc.atom_forces is not None
             assert scc.atom_forces.shape[0] == n_atoms
 
+
 def asserts_basic_code_specific(archive, method_type="DFT", system_type="3D", calc_type="single_point", vdw=None, forces=False):
     run = archive.section_run[0]
     systems = run.section_system
@@ -169,6 +171,7 @@ def asserts_basic_code_specific(archive, method_type="DFT", system_type="3D", ca
             assert shell.x_crystal_shell_range is not None
             assert shell.x_crystal_shell_coefficients.shape[1] == 4
 
+
 def asserts_geo_opt(archive, method_type="DFT", system_type="3D", vdw=None, forces=False):
     run = archive.section_run[0]
     sampling_method = run.section_sampling_method[0]
@@ -180,6 +183,7 @@ def asserts_geo_opt(archive, method_type="DFT", system_type="3D", vdw=None, forc
     assert fs.frame_sequence_local_frames_ref is not None
     assert fs.number_of_frames_in_sequence is not None
     assert fs.geometry_optimization_converged is True
+
 
 def asserts_band_structure(archive, method_type="DFT", system_type="3D", vdw=None, forces=False):
     run = archive.section_run[0]
@@ -195,10 +199,11 @@ def asserts_band_structure(archive, method_type="DFT", system_type="3D", vdw=Non
         assert segment.band_segm_start_end is not None
         assert segment.number_of_k_points_per_segment is not None
 
+
 if __name__ == "__main__":
     test_single_point_forces()
-    test_single_point_dft()
-    test_single_point_hf()
-    test_geo_opt()
-    test_band_structure()
-    test_band_structure_missing()
+    # test_single_point_dft()
+    # test_single_point_hf()
+    # test_geo_opt()
+    # test_band_structure()
+    # test_band_structure_missing()

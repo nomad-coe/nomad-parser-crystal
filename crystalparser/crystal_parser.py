@@ -152,11 +152,12 @@ class CrystalParser(FairdiParser):
                     repeats=False,
                 ),
                 Quantity(
-                    'lattice_parameters_restart',
-                    fr' LATTICE PARAMETERS  \(ANGSTROM AND DEGREES\) - PRIMITIVE CELL\n' +
-                    fr'       A          B          C         ALPHA      BETA     GAMMA        VOLUME\n' +
-                    fr'\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt}\n',
-                    shape=(6),
+                    'lattice_vectors_restart',
+                    fr' DIRECT LATTICE VECTOR COMPONENTS \(ANGSTROM\)\n' +
+                    fr'\s+{flt_c}\s+{flt_c}\s+{flt_c}\n' +
+                    fr'\s+{flt_c}\s+{flt_c}\s+{flt_c}\n' +
+                    fr'\s+{flt_c}\s+{flt_c}\s+{flt_c}\n',
+                    shape=(3, 3),
                     dtype=np.float64,
                     repeats=False,
                 ),
@@ -462,23 +463,24 @@ class CrystalParser(FairdiParser):
         run.time_run_date_start = to_unix_time(out["start_timestamp"])
         run.time_run_date_end = to_unix_time(out["end_timestamp"])
 
-        # System
+        # System. Normally read from lattice parameters and scaled positions,
+        # for restarts reads the cell and positions in cartesian coordinates.
         system = run.m_create(section_system)
         lattice_parameters = out["lattice_parameters"]
         if lattice_parameters is None:
-            lattice_parameters = out["lattice_parameters_restart"]
-        labels_positions = out["labels_positions"]
-        if labels_positions is None:
+            lattice_vectors = out["lattice_vectors_restart"] * ureg.angstrom
             labels_positions = out["labels_positions_restart"]
             atomic_numbers = labels_positions[:, 1].astype(np.int)
-            scaled_pos = labels_positions[:, 4:7].astype(np.float64)
+            cart_pos = labels_positions[:, 4:7].astype(np.float64) * ureg.angstrom
         else:
+            labels_positions = out["labels_positions"]
+            lattice_vectors = atomutils.cellpar_to_cell(lattice_parameters, degrees=True)
             atomic_numbers = labels_positions[:, 2].astype(np.int)
             scaled_pos = labels_positions[:, 4:7].astype(np.float64)
+            cart_pos, lattice_vectors = to_system(lattice_parameters, scaled_pos)
 
-        cart_positions, lattice_vectors = to_system(lattice_parameters, scaled_pos)
         system.lattice_vectors = lattice_vectors
-        system.atom_positions = cart_positions
+        system.atom_positions = cart_pos
         system.atom_species = atomic_numbers
         dimensionality = out["dimensionality"]
         pbc = np.array([False, False, False])
