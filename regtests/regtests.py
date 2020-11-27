@@ -187,6 +187,7 @@ def asserts_band_structure(archive, method_type="DFT", system_type="3D", vdw=Non
     bands = scc.section_k_band[0]
     assert scc.energy_reference_fermi is not None
     assert bands.reciprocal_cell.shape == (3, 3)
+    assert bands.band_structure_kind is not None
     for segment in bands.section_k_band_segment:
         assert segment.band_k_points.shape[1] == 3
         assert segment.band_energies is not None

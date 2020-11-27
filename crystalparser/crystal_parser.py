@@ -600,6 +600,7 @@ class CrystalParser(FairdiParser):
         band_structure = out["band_structure"]
         if band_structure is not None:
             section_band = section_k_band()
+            section_band.band_structure_kind = "electronic"
             section_band.reciprocal_cell = atomutils.reciprocal_cell(system.lattice_vectors.magnitude)*1/ureg.meter
             fermi_energy = band_structure["fermi_energy"]
             if fermi_energy is not None:
