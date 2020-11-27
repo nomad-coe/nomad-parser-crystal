@@ -42,23 +42,29 @@ def test_geo_opt():
 
 
 def test_band_structure():
-    """Tests that band structure calculation is parsed correctly.
+    """Tests that band structure calculation is parsed correctly. Especially parsing the
     """
     filepath = "./band_structure/nacl_hf/NaCl.out"
     archive = parse(filepath)
     asserts_basic(archive, method_type="HF")
     asserts_basic_code_specific(archive, method_type="HF", calc_type="band_structure")
     asserts_band_structure(archive)
+    run = archive.section_run[0]
+    method = run.section_method[0]
+    assert method.XC_functional == "1.0*HF_X"
 
 def test_band_structure_missing():
     """This band structure is missing the f25 file so not output should be
-    generated for band structure.
+    generated for band structure. The functional should still be possible to
+    read.
     """
     filepath = "./band_structure/tis2_dft/TiS2_band_structure.prop.o"
     archive = parse(filepath)
-    # asserts_basic(archive)
-    # asserts_basic_code_specific(archive)
-    # asserts_geo_opt(archive)
+    asserts_basic(archive)
+    asserts_basic_code_specific(archive, calc_type="band_structure")
+    run = archive.section_run[0]
+    method = run.section_method[0]
+    assert method.XC_functional == "1.0*HYB_GGA_XC_PBEH"
 
 
 def parse(filepath):
@@ -179,16 +185,19 @@ def asserts_band_structure(archive, method_type="DFT", system_type="3D", vdw=Non
     run = archive.section_run[0]
     scc = run.section_single_configuration_calculation[0]
     bands = scc.section_k_band[0]
+    assert scc.energy_reference_fermi is not None
     assert bands.reciprocal_cell.shape == (3, 3)
     for segment in bands.section_k_band_segment:
         assert segment.band_k_points.shape[1] == 3
+        assert segment.band_energies is not None
+        assert segment.band_energies.shape[1] == segment.band_k_points.shape[0]
         assert segment.band_segm_start_end is not None
         assert segment.number_of_k_points_per_segment is not None
 
 if __name__ == "__main__":
-    # test_single_point_forces()
-    # test_single_point_dft()
-    # test_single_point_hf()
-    # test_geo_opt()
-    # test_band_structure_missing()
+    test_single_point_forces()
+    test_single_point_dft()
+    test_single_point_hf()
+    test_geo_opt()
     test_band_structure()
+    test_band_structure_missing()

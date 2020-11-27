@@ -1,8 +1,11 @@
+import re
+import os
+import textwrap
 import logging
 import datetime
-import re
-import numpy as np
+
 import ase
+import numpy as np
 
 from nomad.units import ureg
 from nomad import atomutils
@@ -28,6 +31,7 @@ integer = r'-?\d+'                                # Integer number
 integer_c = capture(integer)                      # Captures integer number
 word = r'[a-zA-Z]+'                               # A single alphanumeric word
 word_c = capture(word)                            # Captures a single alphanumeric word
+
 
 class CrystalParser(FairdiParser):
     """NOMAD-lab parser for Crystal.
@@ -348,8 +352,13 @@ class CrystalParser(FairdiParser):
                                     repeats=False,
                                 ),
                                 Quantity(
+                                    'n_steps',
+                                    fr'\s+{integer_c} POINTS - ',
+                                    repeats=False,
+                                ),
+                                Quantity(
                                     'shrinking_factor',
-                                    fr'\s+{integer} POINTS - SHRINKING_FACTOR {integer_c}\n',
+                                    fr'SHRINKING_FACTOR {integer_c}\n',
                                     repeats=False,
                                 ),
                                 Quantity(
@@ -378,14 +387,54 @@ class CrystalParser(FairdiParser):
                     repeats=False,
                 ),
                 Quantity("end_timestamp", r' EEEEEEEEEE TERMINATION  DATE\s+(.*? TIME .*?)\n', str_operation=lambda x: x, repeats=False),
+
+                # Filepaths
+                Quantity("f25_filepath1", r'file fort\.25 saved as ([\s\S]+?)\n', str_operation=lambda x: x, repeats=False),
+                Quantity("f25_filepath2", r'BAND/MAPS/DOSS data for plotting fort.25 saved as ([\s\S]+?)\n', str_operation=lambda x: x, repeats=False),
             ]
         )
 
         return outputparser
 
+    def parse_f25(self, filepath):
+        """Parses the f25 file containing e.g. the band structure energies."
+        """
+        f25parser = UnstructuredTextFileParser(
+            filepath,
+            quantities=[
+                # Band structure
+                Quantity("segments",
+                    fr'(-\%-0BAND\s*{integer}\s*{integer}\s?{flt}\s?{flt}\s?{flt}\n' +
+                    fr'\s*{flt}\s*{flt}\n' +
+                    fr'\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\n' +
+                    fr'(?:{flt}\s?)+)',
+                    sub_parser=UnstructuredTextFileParser(quantities=[
+                        Quantity(
+                            'dimensions',
+                            fr'-\%-0BAND\s*{integer_c}\s*{integer_c}\s?{flt}\s?{flt}\s?{flt}\n',
+                            type=np.int,
+                            shape=(2),
+                            repeats=False,
+                        ),
+                        Quantity(
+                            'energies',
+                            fr'\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\n' +
+                            fr'((?:{flt}\s?)+)',
+                            str_operation=lambda x: x,
+                            repeats=False,
+                        ),
+                    ]),
+                    repeats=True,
+                ),
+            ]
+        )
+
+        return f25parser
+
     def parse(self, filepath, archive, logger):
         # Read files
         out = self.parse_output(filepath)
+        wrkdir, outfile = os.path.split(filepath)
 
         # Run
         run = archive.m_create(section_run)
@@ -556,21 +605,35 @@ class CrystalParser(FairdiParser):
             if fermi_energy is not None:
                 scc.energy_reference_fermi = fermi_energy
             segments = band_structure["segments"]
-            for segment in segments:
+            k_points = to_k_points(segments)
+            for i_seg, segment in enumerate(segments):
                 section_segment = section_k_band_segment()
                 start_end = segment["start_end"]
                 shrinking_factor = segment["shrinking_factor"]
                 intervals = segment["intervals"]
-                k_points = to_k_points(shrinking_factor, intervals)
-                section_segment.band_k_points = k_points
+                n_steps = segment["n_steps"]
+                section_segment.band_k_points = k_points[i_seg]
                 section_segment.band_segm_start_end = start_end
-                section_segment.number_of_k_points_per_segment = k_points.shape[0]
+                section_segment.number_of_k_points_per_segment = k_points[i_seg].shape[0]
                 section_band.m_add_sub_section(section_k_band.section_k_band_segment, section_segment)
 
-            # Read energies from the f25-file.
-            # TODO
-
-            scc.m_add_sub_section(section_single_configuration_calculation.section_k_band, section_band)
+            # Read energies from the f25-file. If the file is not found, the
+            # band structure is not written at all.
+            f25_filepath1 = out["f25_filepath1"]
+            f25_filepath2 = out["f25_filepath2"]
+            f25_filepath_original = f25_filepath1 if f25_filepath1 else f25_filepath2
+            if f25_filepath_original is not None:
+                _, f25_filename = os.path.split(f25_filepath_original)
+                f25_filepath = os.path.join(wrkdir, f25_filename)
+                if os.path.exists(f25_filepath):
+                    f25 = self.parse_f25(f25_filepath)
+                    segments = f25["segments"]
+                    for i_seg, segment in enumerate(segments):
+                        dimensions = segment["dimensions"]
+                        energies = segment["energies"]
+                        energies = to_array(dimensions[0], dimensions[1], energies)
+                        section_band.section_k_band_segment[i_seg].band_energies = energies[None, :]
+                    scc.m_add_sub_section(section_single_configuration_calculation.section_k_band, section_band)
 
         # Sampling
         geo_opt = out["geo_opt"]
@@ -619,18 +682,39 @@ class CrystalParser(FairdiParser):
                 fs.frame_sequence_to_sampling_ref = sampling_method
                 fs.geometry_optimization_converged = geo_opt["converged"] == "CONVERGED"
 
-
-def to_k_points(sf, intervals):
-    """Converts the k-path intervals reported by Crystal into scaled k-points.
+def to_k_points(segments):
+    """Converts the given start and end points, the shrinking factor and the
+    number of steps into a list of concrete sampling points in k-space. The
+    shrinking factor tells to how many portions one reciprocal basis vector is
+    divided into. This needs to be done manually as sometimes the k-points are
+    not reported in the output.
     """
-    regex = re.compile(fr'{integer_c}/{sf}\s*{integer_c}/{sf}\s*{integer_c}/{sf}')
-    k_points = []
-    for interval in intervals:
-        match = regex.match(interval)
-        groups = match.groups()
-        k_point = [int(x)/sf for x in groups]
-        k_points.append(k_point)
-    return np.array(k_points)
+    all_k_points = []
+    prev_point = None
+    for segment in segments:
+        start = segment["start_end"][0, :]
+        end = segment["start_end"][1, :]
+        shrinking_factor = segment["shrinking_factor"]
+        n_steps = segment["n_steps"]
+
+        # When segments start from where the old segment left of, the staring point
+        # is not recalculated.
+        start_idx = 1
+        end_idx = n_steps + 1
+        if prev_point is None or not np.allclose(prev_point, start):
+            start_idx = 0
+            end_idx = n_steps
+            n_steps = n_steps - 1
+
+        delta = end - start
+        start_step = (shrinking_factor*start).astype(np.int)
+        step_size = (shrinking_factor*delta/n_steps).astype(np.int)
+        steps = (start_step + step_size* np.arange(start_idx, end_idx)[:, None])
+        k_points = steps/shrinking_factor
+        all_k_points.append(k_points)
+        prev_point = end
+
+    return all_k_points
 
 
 def to_system(lattice_parameters, scaled_pos):
@@ -652,6 +736,16 @@ def to_float(value):
     base = int(base)
     exponent = int("".join(exponent.split()))
     return pow(base, exponent)
+
+
+def to_array(cols, rows, values):
+    """Transforms the Crystal-specific f25 array syntax into a numpy array.
+    """
+    values = values.strip()
+    values = textwrap.wrap(values, 12)
+    values = np.array(values, dtype=np.float64)
+    values = values.reshape((rows, cols))
+    return values
 
 
 def to_atomic_number(value):
