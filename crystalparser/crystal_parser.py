@@ -603,7 +603,7 @@ class CrystalParser(FairdiParser):
             section_band.reciprocal_cell = atomutils.reciprocal_cell(system.lattice_vectors.magnitude)*1/ureg.meter
             fermi_energy = band_structure["fermi_energy"]
             if fermi_energy is not None:
-                scc.energy_reference_fermi = fermi_energy
+                scc.energy_reference_fermi = [fermi_energy]
             segments = band_structure["segments"]
             k_points = to_k_points(segments)
             for i_seg, segment in enumerate(segments):
