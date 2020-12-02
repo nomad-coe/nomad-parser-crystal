@@ -128,13 +128,13 @@ class CrystalParser(FairdiParser):
                 Quantity('sorting_of_energy_points', fr'SORTING OF ENERGY POINTS\:\s+{word_c}', repeats=False),
 
                 # System
-                Quantity("dimensionality",
-                    r' GEOMETRY FOR WAVE FUNCTION - DIMENSIONALITY OF THE SYSTEM\s+(\d)',
-                    repeats=False
-                ),
+                Quantity("crystal_family", r' CRYSTAL FAMILY\s*:\s*([\s\S]+?)\s*\n', str_operation=lambda x: x, repeats=False),
+                Quantity("crystal_class", r' CRYSTAL CLASS  \(GROTH - 1921\)\s*:\s*([\s\S]+?)\s*\n', str_operation=lambda x: x, repeats=False),
+                Quantity("space_group", r' SPACE GROUP \(CENTROSYMMETRIC\)\s*:\s*([\s\S]+?)\s*\n', str_operation=lambda x: x, repeats=False),
+                Quantity("dimensionality", r' GEOMETRY FOR WAVE FUNCTION - DIMENSIONALITY OF THE SYSTEM\s+(\d)', repeats=False),
                 Quantity(
                     'lattice_parameters',
-                    fr' PRIMITIVE CELL - CENTRING CODE [\s\S]*?VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3\n' +
+                    fr' PRIMITIVE CELL - CENTRING CODE\s*[\s\S]*?\s*VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3\n' +
                     fr'         A              B              C           ALPHA      BETA       GAMMA\s*' +
                     fr'{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\n',
                     shape=(6),
@@ -170,6 +170,7 @@ class CrystalParser(FairdiParser):
                     dtype=str,
                     repeats=False,
                 ),
+                Quantity("symmops", r' NUMBER OF SYMMETRY OPERATORS\s*:\s*(\d)\n', repeats=False),
 
                 # Method
                 Quantity(
@@ -255,12 +256,17 @@ class CrystalParser(FairdiParser):
                     sub_parser=UnstructuredTextFileParser(quantities=[
                         Quantity(
                             'scf_iterations',
-                            r'( CHARGE NORMALIZATION FACTOR[\s\S]*? TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT PDIG)',
+                            r'( CHARGE NORMALIZATION FACTOR[\s\S]*? (?:TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT PDIG|== SCF ENDED))',
                             sub_parser=UnstructuredTextFileParser(quantities=[
                                 Quantity('charge_normalization_factor', fr' CHARGE NORMALIZATION FACTOR{ws}{flt}\n', repeats=False),
                                 Quantity('total_atomic_charges', fr' TOTAL ATOMIC CHARGES:\n(?:{ws}{flt})+\n', repeats=False),
                                 Quantity('QGAM', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT QGAM        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}\n', repeats=False),
                                 Quantity('BIEL2', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT BIEL2        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}\n', repeats=False),
+                                Quantity('energy_kinetic', fr' ::: KINETIC ENERGY\s+{flt_c}\n', unit=ureg.hartree, repeats=False),
+                                Quantity('energy_ee', fr' ::: TOTAL E-E\s+{flt_c}\n', unit=ureg.hartree, repeats=False),
+                                Quantity('energy_en_ne', fr' ::: TOTAL E-N \+ N-E\s+{flt_c}\n', unit=ureg.hartree, repeats=False),
+                                Quantity('energy_nn', fr' ::: TOTAL N-N\s+{flt_c}\n', unit=ureg.hartree, repeats=False),
+                                Quantity('virial_coefficient', fr' ::: VIRIAL COEFFICIENT\s+{flt_c}\n', repeats=False),
                                 Quantity('TOTENY', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT TOTENY        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}\n', repeats=False),
                                 Quantity('integrated_density', fr' NUMERICALLY INTEGRATED DENSITY{ws}{flt}\n', repeats=False),
                                 Quantity('NUMDFT', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT NUMDFT        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}\n', repeats=False),
@@ -552,9 +558,23 @@ class CrystalParser(FairdiParser):
         system.atom_positions = cart_pos
         system.atom_species = atomic_numbers
         dimensionality = out["dimensionality"]
+        if dimensionality is not None:
+            system.x_crystal_dimensionality = dimensionality
+        crystal_family = out["crystal_family"]
+        if crystal_family is not None:
+            system.x_crystal_family = crystal_family
+        crystal_class = out["crystal_class"]
+        if crystal_class is not None:
+            system.x_crystal_class = crystal_class
+        n_symmops = out["n_symmops"]
+        if n_symmops is not None:
+            system.x_crystal_n_symmops = n_symmops
+        space_group = out["space_group"]
+        if space_group is not None:
+            system.x_crystal_space_group = space_group
         pbc = np.array([False, False, False])
         pbc[0:dimensionality] = True
-        system.configuration_periodic_dimensions = pbc
+        system.configuration_periodic_dimensions = [True, True, True]
 
         # Method
         method = run.m_create(section_method)
@@ -659,6 +679,21 @@ class CrystalParser(FairdiParser):
                 section_scf = section_scf_iteration()
                 section_scf.energy_total_scf_iteration = energies[0]
                 section_scf.energy_change_scf_iteration = energies[1]
+                energy_kinetic = scf["energy_kinetic"]
+                if energy_kinetic is not None:
+                    section_scf.electronic_kinetic_energy_scf_iteration = energy_kinetic
+                energy_ee = scf["energy_ee"]
+                if energy_ee is not None:
+                    section_scf.x_crystal_scf_energy_ee = energy_ee
+                energy_en_ne = scf["energy_en_ne"]
+                if energy_en_ne is not None:
+                    section_scf.x_crystal_scf_energy_en_ne = energy_en_ne
+                energy_nn = scf["energy_nn"]
+                if energy_nn is not None:
+                    section_scf.x_crystal_scf_energy_nn = energy_nn
+                virial_coefficient = scf["virial_coefficient"]
+                if virial_coefficient is not None:
+                    section_scf.x_crystal_scf_virial_coefficient = virial_coefficient
                 scc.m_add_sub_section(section_single_configuration_calculation.section_scf_iteration, section_scf)
 
         scc.energy_total = out["energy_total"]
