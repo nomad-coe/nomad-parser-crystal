@@ -377,6 +377,37 @@ class CrystalParser(FairdiParser):
                     repeats=False,
                 ),
 
+                # DOS
+                Quantity(
+                    'dos',
+                    r' RESTART WITH NEW K POINTS NET\n' +
+                    r'([\s\S]+?' +
+                    ' TOTAL AND PROJECTED DENSITY OF STATES - FOURIER LEGENDRE METHOD\n' +
+                    r'[\s\S]+?)' +
+                    r' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT DOSS        TELAPSE',
+                    sub_parser=UnstructuredTextFileParser(quantities=[
+                        Quantity(
+                            'k_points',
+                            fr' \*\*\* K POINTS COORDINATES (OBLIQUE COORDINATES IN UNITS OF IS = {int})\n',
+                            repeats=False,
+                        ),
+                        Quantity(
+                            'highest_occupied',
+                            fr' TOP OF VALENCE BANDS -    BAND\s*{integer}; K\s*{integer}; EIG {flt_c}\s*AU',
+                            unit=ureg.hartree,
+                            repeats=False,
+                        ),
+                        Quantity(
+                            'lowest_unoccupied',
+                            fr' BOTTOM OF VIRTUAL BANDS - BAND\s*{integer}; K\s*{integer}; EIG\s*{flt_c}\s*AU',
+                            unit=ureg.hartree,
+                            repeats=False,
+                        ),
+                    ]),
+                    repeats=False,
+                ),
+                Quantity("end_timestamp", r' EEEEEEEEEE TERMINATION  DATE\s+(.*? TIME .*?)\n', str_operation=lambda x: x, repeats=False),
+
                 # Forces
                 Quantity(
                     'forces',
@@ -403,12 +434,12 @@ class CrystalParser(FairdiParser):
         f25parser = UnstructuredTextFileParser(
             filepath,
             quantities=[
-                # Band structure
+                # Band structure energies
                 Quantity("segments",
                     fr'(-\%-0BAND\s*{integer}\s*{integer}\s?{flt}\s?{flt}\s?{flt}\n' +
                     fr'\s*{flt}\s*{flt}\n' +
                     fr'\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\n' +
-                    fr'(?:{flt}\s?)+)',
+                    fr'(?:\s*{flt})+)',
                     sub_parser=UnstructuredTextFileParser(quantities=[
                         Quantity(
                             'dimensions',
@@ -427,6 +458,33 @@ class CrystalParser(FairdiParser):
                     ]),
                     repeats=True,
                 ),
+                # DOS values
+                Quantity("dos",
+                    fr'(-\%-0DOSS\s*{integer}\s*{integer}\s?{flt}\s?{flt}\s?{flt}\n' +
+                    fr'\s*{flt}\s?{flt}\n' +
+                    fr'\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\n' +
+                    fr'(?:\s*{flt})+)',
+                    sub_parser=UnstructuredTextFileParser(quantities=[
+                        Quantity(
+                            'first_row',
+                            fr'-\%-0DOSS\s*{integer_c}\s*{integer_c}\s?{flt_c}\s?{flt_c}\s?{flt_c}\n',
+                            repeats=False,
+                        ),
+                        Quantity(
+                            'second_row',
+                            fr'\s?{flt_c}\s?{flt_c}\n',
+                            repeats=False,
+                        ),
+                        Quantity(
+                            'values',
+                            fr'\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\n' +
+                            fr'((?:\s*{flt})+)',
+                            str_operation=lambda x: x,
+                            repeats=False,
+                        ),
+                    ]),
+                    repeats=False,
+                ),
             ]
         )
 
@@ -436,6 +494,15 @@ class CrystalParser(FairdiParser):
         # Read files
         out = self.parse_output(filepath)
         wrkdir, outfile = os.path.split(filepath)
+        f25_filepath1 = out["f25_filepath1"]
+        f25_filepath2 = out["f25_filepath2"]
+        f25_filepath_original = f25_filepath1 if f25_filepath1 else f25_filepath2
+        f25 = None
+        if f25_filepath_original is not None:
+            _, f25_filename = os.path.split(f25_filepath_original)
+            f25_filepath = os.path.join(wrkdir, f25_filename)
+            if os.path.exists(f25_filepath):
+                f25 = self.parse_f25(f25_filepath)
 
         # Run
         run = archive.m_create(section_run)
@@ -620,36 +687,59 @@ class CrystalParser(FairdiParser):
                 section_segment.number_of_k_points_per_segment = k_points[i_seg].shape[0]
                 section_band.m_add_sub_section(section_k_band.section_k_band_segment, section_segment)
 
-            # Read energies from the f25-file. If the file is not found, the
-            # band structure is not written at all.
-            f25_filepath1 = out["f25_filepath1"]
-            f25_filepath2 = out["f25_filepath2"]
-            f25_filepath_original = f25_filepath1 if f25_filepath1 else f25_filepath2
-            if f25_filepath_original is not None:
-                _, f25_filename = os.path.split(f25_filepath_original)
-                f25_filepath = os.path.join(wrkdir, f25_filename)
-                if os.path.exists(f25_filepath):
-                    f25 = self.parse_f25(f25_filepath)
-                    segments = f25["segments"]
-                    prev_energy = None
-                    prev_k_point = None
-                    for i_seg, segment in enumerate(segments):
-                        dimensions = segment["dimensions"]
-                        energies = segment["energies"]
-                        energies = to_array(dimensions[0], dimensions[1], energies)
+            if f25 is not None:
+                segments = f25["segments"]
+                prev_energy = None
+                prev_k_point = None
+                for i_seg, segment in enumerate(segments):
+                    dimensions = segment["dimensions"]
+                    energies = segment["energies"]
+                    energies = to_array(dimensions[0], dimensions[1], energies)
 
-                        # If a segment starts from the previous point, then
-                        # re-report the energy. This way segments get the same
-                        # treatment in the metainfo whether they are continuous
-                        # or not.
-                        start_k_point = section_band.section_k_band_segment[i_seg].band_k_points[0]
-                        end_k_point = section_band.section_k_band_segment[i_seg].band_k_points[-1]
-                        if prev_k_point is not None and np.allclose(prev_k_point, start_k_point):
-                            energies = np.concatenate(([prev_energy], energies), axis=0)
-                        section_band.section_k_band_segment[i_seg].band_energies = energies[None, :] * ureg.hartree
-                        prev_energy = energies[-1]
-                        prev_k_point = end_k_point
-                    scc.m_add_sub_section(section_single_configuration_calculation.section_k_band, section_band)
+                    # If a segment starts from the previous point, then
+                    # re-report the energy. This way segments get the same
+                    # treatment in the metainfo whether they are continuous
+                    # or not.
+                    start_k_point = section_band.section_k_band_segment[i_seg].band_k_points[0]
+                    end_k_point = section_band.section_k_band_segment[i_seg].band_k_points[-1]
+                    if prev_k_point is not None and np.allclose(prev_k_point, start_k_point):
+                        energies = np.concatenate(([prev_energy], energies), axis=0)
+                    section_band.section_k_band_segment[i_seg].band_energies = energies[None, :] * ureg.hartree
+                    prev_energy = energies[-1]
+                    prev_k_point = end_k_point
+                scc.m_add_sub_section(section_single_configuration_calculation.section_k_band, section_band)
+
+        # DOS
+        dos = out["dos"]
+        if dos is not None:
+            # Read values from the f25-file. If the file is not found, the band
+            # structure is not written at all. The meaning of the values is
+            # given in an appendix of the Crystal manual.
+            if f25 is not None:
+                dos_f25 = f25["dos"]
+                if dos_f25 is not None:
+                    scc_dos = section_single_configuration_calculation()
+                    scc_dos.single_configuration_calculation_to_system_ref = system
+                    scc_dos.single_configuration_to_calculation_method_ref = method
+                    sec_dos = section_dos()
+
+                    first_row = dos_f25["first_row"]
+                    cols = int(first_row[0])
+                    rows = int(first_row[1])
+                    de = first_row[3]
+                    fermi_energy = first_row[4]
+                    scc_dos.energy_reference_fermi = fermi_energy * ureg.hartree
+
+                    second_row = dos_f25["second_row"]
+                    start_energy = second_row[1]
+                    sec_dos.dos_energies = (start_energy + np.arange(rows) * de) * ureg.hartree
+
+                    dos_values = dos_f25["values"]
+                    dos_values = to_array(cols, rows, dos_values)
+                    sec_dos.dos_values = dos_values.T
+                    sec_dos.dos_kind = "electronical"
+                    scc_dos.m_add_sub_section(section_single_configuration_calculation.section_dos, sec_dos)
+                    run.m_add_sub_section(section_run.section_single_configuration_calculation, scc_dos)
 
         # Sampling
         geo_opt = out["geo_opt"]
@@ -755,7 +845,7 @@ def to_float(value):
 def to_array(cols, rows, values):
     """Transforms the Crystal-specific f25 array syntax into a numpy array.
     """
-    values = values.strip()
+    values.replace("\n", "")
     values = textwrap.wrap(values, 12)
     values = np.array(values, dtype=np.float64)
     values = values.reshape((rows, cols))

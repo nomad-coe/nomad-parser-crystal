@@ -47,7 +47,7 @@ def test_band_structure():
     filepath = "./band_structure/nacl_hf/NaCl.out"
     archive = parse(filepath)
     asserts_basic(archive, method_type="HF")
-    asserts_basic_code_specific(archive, method_type="HF", calc_type="band_structure")
+    asserts_basic_code_specific(archive, method_type="HF")
     asserts_band_structure(archive)
     run = archive.section_run[0]
     method = run.section_method[0]
@@ -62,10 +62,20 @@ def test_band_structure_missing():
     filepath = "./band_structure/tis2_dft/TiS2_band_structure.prop.o"
     archive = parse(filepath)
     asserts_basic(archive)
-    asserts_basic_code_specific(archive, calc_type="band_structure")
+    asserts_basic_code_specific(archive)
     run = archive.section_run[0]
     method = run.section_method[0]
     assert method.XC_functional == "1.0*HYB_GGA_XC_PBEH"
+
+
+def test_dos():
+    """Tests that DOS is parsed successfully.
+    """
+    filepath = "./dos/nacl_hf/NaCl.out"
+    archive = parse(filepath)
+    asserts_basic(archive)
+    asserts_basic_code_specific(archive)
+    asserts_dos(archive)
 
 
 def parse(filepath):
@@ -106,7 +116,6 @@ def asserts_basic(archive, method_type="DFT", system_type="3D", vdw=None, forces
     assert method.scf_threshold_energy_change is not None
 
     for scc in sccs:
-        assert scc.energy_total is not None
         assert scc.single_configuration_calculation_to_system_ref is not None
         assert scc.single_configuration_to_calculation_method_ref is not None
         scf = scc.section_scf_iteration
@@ -121,7 +130,7 @@ def asserts_basic(archive, method_type="DFT", system_type="3D", vdw=None, forces
             assert scc.atom_forces.shape[0] == n_atoms
 
 
-def asserts_basic_code_specific(archive, method_type="DFT", system_type="3D", calc_type="single_point", vdw=None, forces=False):
+def asserts_basic_code_specific(archive, method_type="DFT", system_type="3D", vdw=None, forces=False):
     run = archive.section_run[0]
     systems = run.section_system
     method = run.section_method[0]
@@ -158,8 +167,6 @@ def asserts_basic_code_specific(archive, method_type="DFT", system_type="3D", ca
     assert method.x_crystal_shrink_gilat is not None
     assert method.x_crystal_weight_f is not None
     assert method.x_crystal_n_k_points_ibz is not None
-    if calc_type != "band_structure":
-        assert method.x_crystal_n_k_points_gilat is not None
     if method_type == "DFT":
         assert method.x_crystal_toldee is not None
 
@@ -200,10 +207,26 @@ def asserts_band_structure(archive, method_type="DFT", system_type="3D", vdw=Non
         assert segment.number_of_k_points_per_segment is not None
 
 
+def asserts_dos(archive, method_type="DFT", system_type="3D", vdw=None, forces=False):
+    run = archive.section_run[0]
+    dos_found = False
+    # for scc in run.section_single_configuration_calculation:
+        # dos = scc.section_dos
+        # if dos:
+            # dos = dos[0]
+            # dos_found = True
+            # assert scc.energy_reference_fermi is not None or scc.energy_reference_highest_occupied is not None
+            # assert dos.dos_kind is not None
+            # assert dos.number_of_dos_values is not None
+            # assert dos.dos_energies.shape == (dos.number_of_dos_values,)
+    # assert dos_found
+
+
 if __name__ == "__main__":
     test_single_point_forces()
-    # test_single_point_dft()
-    # test_single_point_hf()
-    # test_geo_opt()
-    # test_band_structure()
-    # test_band_structure_missing()
+    test_single_point_dft()
+    test_single_point_hf()
+    test_geo_opt()
+    test_band_structure()
+    test_band_structure_missing()
+    test_dos()
