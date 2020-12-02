@@ -97,8 +97,8 @@ def asserts_basic(archive, method_type="DFT", system_type="3D", vdw=None, forces
     assert run.time_run_date_end is not None
 
     if method_type == "DFT":
-        assert run.electronic_structure_method == "DFT"
         assert method.XC_functional is not None
+        assert method.electronic_structure_method == "DFT"
     if vdw:
         assert method.van_der_Waals_method == vdw
 
@@ -210,16 +210,17 @@ def asserts_band_structure(archive, method_type="DFT", system_type="3D", vdw=Non
 def asserts_dos(archive, method_type="DFT", system_type="3D", vdw=None, forces=False):
     run = archive.section_run[0]
     dos_found = False
-    # for scc in run.section_single_configuration_calculation:
-        # dos = scc.section_dos
-        # if dos:
-            # dos = dos[0]
-            # dos_found = True
-            # assert scc.energy_reference_fermi is not None or scc.energy_reference_highest_occupied is not None
-            # assert dos.dos_kind is not None
-            # assert dos.number_of_dos_values is not None
-            # assert dos.dos_energies.shape == (dos.number_of_dos_values,)
-    # assert dos_found
+    for scc in run.section_single_configuration_calculation:
+        dos = scc.section_dos
+        if dos:
+            dos = dos[0]
+            dos_found = True
+            assert scc.energy_reference_fermi is not None or scc.energy_reference_highest_occupied is not None
+            assert dos.dos_kind is not None
+            assert dos.number_of_dos_values is not None
+            assert dos.dos_energies.shape == (dos.number_of_dos_values,)
+            assert dos.dos_values.shape == (1, dos.number_of_dos_values)
+    assert dos_found
 
 
 if __name__ == "__main__":

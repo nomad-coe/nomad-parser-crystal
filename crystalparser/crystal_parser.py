@@ -442,10 +442,13 @@ class CrystalParser(FairdiParser):
                     fr'(?:\s*{flt})+)',
                     sub_parser=UnstructuredTextFileParser(quantities=[
                         Quantity(
-                            'dimensions',
-                            fr'-\%-0BAND\s*{integer_c}\s*{integer_c}\s?{flt}\s?{flt}\s?{flt}\n',
-                            type=np.int,
-                            shape=(2),
+                            'first_row',
+                            fr'-\%-0BAND\s*{integer_c}\s*{integer_c}\s?{flt_c}\s?{flt_c}\s?{flt_c}\n',
+                            repeats=False,
+                        ),
+                        Quantity(
+                            'second_row',
+                            fr'\s?{flt_c}\s?{flt_c}\n',
                             repeats=False,
                         ),
                         Quantity(
@@ -509,7 +512,6 @@ class CrystalParser(FairdiParser):
         run.program_name = 'Crystal'
         run.program_version = out["program_version"]
         run.program_basis_set_type = 'gaussians'
-        run.electronic_structure_method = 'DFT'
         run.x_crystal_datetime = out["datetime"]
         run.x_crystal_hostname = out["hostname"]
         run.x_crystal_user = out["user"]
@@ -556,6 +558,7 @@ class CrystalParser(FairdiParser):
 
         # Method
         method = run.m_create(section_method)
+        method.electronic_structure_method = 'DFT'
         method.scf_max_iteration = out["scf_max_iteration"]
         method.scf_threshold_energy_change = out["scf_threshold_energy_change"]
         dftd3 = out["dftd3"]
@@ -671,9 +674,6 @@ class CrystalParser(FairdiParser):
             section_band = section_k_band()
             section_band.band_structure_kind = "electronic"
             section_band.reciprocal_cell = atomutils.reciprocal_cell(system.lattice_vectors.magnitude)*1/ureg.meter
-            fermi_energy = band_structure["fermi_energy"]
-            if fermi_energy is not None:
-                scc.energy_reference_fermi = np.array([fermi_energy]) * ureg.hartree
             segments = band_structure["segments"]
             k_points = to_k_points(segments)
             for i_seg, segment in enumerate(segments):
@@ -687,14 +687,22 @@ class CrystalParser(FairdiParser):
                 section_segment.number_of_k_points_per_segment = k_points[i_seg].shape[0]
                 section_band.m_add_sub_section(section_k_band.section_k_band_segment, section_segment)
 
+            # Read energies from the f25-file. If the file is not found, the
+            # band structure is not written in the archive. The meaning of the
+            # values is given in an appendix of the Crystal manual.
             if f25 is not None:
                 segments = f25["segments"]
                 prev_energy = None
                 prev_k_point = None
+                first_row = segments[0]["first_row"]
+                fermi_energy = first_row[4]
+                scc.energy_reference_fermi = np.array([fermi_energy]) * ureg.hartree
                 for i_seg, segment in enumerate(segments):
-                    dimensions = segment["dimensions"]
+                    first_row = segment["first_row"]
+                    cols = int(first_row[0])
+                    rows = int(first_row[1])
                     energies = segment["energies"]
-                    energies = to_array(dimensions[0], dimensions[1], energies)
+                    energies = to_array(cols, rows, energies)
 
                     # If a segment starts from the previous point, then
                     # re-report the energy. This way segments get the same
@@ -712,9 +720,9 @@ class CrystalParser(FairdiParser):
         # DOS
         dos = out["dos"]
         if dos is not None:
-            # Read values from the f25-file. If the file is not found, the band
-            # structure is not written at all. The meaning of the values is
-            # given in an appendix of the Crystal manual.
+            # Read values and energies from the f25-file. If the file is not
+            # found, the dos is not written in the archive. The meaning of the
+            # values is given in an appendix of the Crystal manual.
             if f25 is not None:
                 dos_f25 = f25["dos"]
                 if dos_f25 is not None:
@@ -728,7 +736,7 @@ class CrystalParser(FairdiParser):
                     rows = int(first_row[1])
                     de = first_row[3]
                     fermi_energy = first_row[4]
-                    scc_dos.energy_reference_fermi = fermi_energy * ureg.hartree
+                    scc_dos.energy_reference_fermi = np.array([fermi_energy]) * ureg.hartree
 
                     second_row = dos_f25["second_row"]
                     start_energy = second_row[1]
@@ -738,6 +746,7 @@ class CrystalParser(FairdiParser):
                     dos_values = to_array(cols, rows, dos_values)
                     sec_dos.dos_values = dos_values.T
                     sec_dos.dos_kind = "electronical"
+                    sec_dos.number_of_dos_values = sec_dos.dos_values.shape[1]
                     scc_dos.m_add_sub_section(section_single_configuration_calculation.section_dos, sec_dos)
                     run.m_add_sub_section(section_run.section_single_configuration_calculation, scc_dos)
 
