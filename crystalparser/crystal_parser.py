@@ -321,9 +321,10 @@ class CrystalParser(FairdiParser):
                 # Geometry optimization steps
                 Quantity(
                     "geo_opt",
-                    re.escape(r' *******************************************************************************') + fr'{br}' +
-                    fr' \*                             OPTIMIZATION STARTS                             \*{br}' +
-                    r'([\s\S]*?' + 
+                    # re.escape(r' *******************************************************************************') + fr'{br}' +
+                    # fr' \*                             OPTIMIZATION STARTS                             \*{br}' +
+                    fr' ((?:COORDINATE AND CELL OPTIMIZATION|COORDINATE OPTIMIZATION) - POINT\s+1{br}' +
+                    r'[\s\S]*?' + 
                     re.escape(r' ******************************************************************') + fr'{br}' +
                     fr'\s*\* OPT END - CONVERGED \* E\(AU\)\:\s+{flt}\s+POINTS\s+{integer})\s+\*{br}',
                     sub_parser=UnstructuredTextFileParser(quantities=[
@@ -343,9 +344,19 @@ class CrystalParser(FairdiParser):
                                     repeats=False,
                                 ),
                                 Quantity(
-                                    "labels_positions",
+                                    "labels_positions_scaled",
                                     fr' ATOMS IN THE ASYMMETRIC UNIT\s+{integer} - ATOMS IN THE UNIT CELL:\s+{integer}{br}' +
                                     fr'     ATOM              X/A                 Y/B                 Z/C\s*{br}' +
+                                    re.escape(' *******************************************************************************') +
+                                    fr'((?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}{br})+)',
+                                    shape=(-1, 7),
+                                    dtype=str,
+                                    repeats=False,
+                                ),
+                                Quantity(
+                                    "labels_positions_cartesian",
+                                    fr' ATOMS IN THE ASYMMETRIC UNIT\s+{integer} - ATOMS IN THE UNIT CELL:\s+{integer}{br}' +
+                                    fr'     ATOM          X\(ANGSTROM\)         Y\(ANGSTROM\)         Z\(ANGSTROM\){br}' +
                                     re.escape(' *******************************************************************************') +
                                     fr'((?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}{br})+)',
                                     shape=(-1, 7),
@@ -852,15 +863,21 @@ class CrystalParser(FairdiParser):
                     i_scc = section_single_configuration_calculation()
                     i_system = section_system()
                     i_energy = step["energy"]
-                    i_labels_positions = step["labels_positions"]
-                    i_lattice_parameters = step["lattice_parameters"]
-                    i_atomic_numbers = i_labels_positions[:, 2].astype(np.int)
-                    i_scaled_pos = i_labels_positions[:, 4:8].astype(np.float64)
-                    i_cart_pos, i_lattice_vectors = to_system(i_lattice_parameters, i_scaled_pos)
+                    if molecular:
+                        i_labels_positions = step["labels_positions_cartesian"]
+                        i_atomic_numbers = i_labels_positions[:, 2].astype(np.int)
+                        i_cart_pos = i_labels_positions[:, 4:8].astype(np.float64)
+                    else:
+                        i_labels_positions = step["labels_positions_scaled"]
+                        i_lattice_parameters = step["lattice_parameters"]
+                        i_atomic_numbers = i_labels_positions[:, 2].astype(np.int)
+                        i_scaled_pos = i_labels_positions[:, 4:8].astype(np.float64)
+                        i_cart_pos, i_lattice_vectors = to_system(i_lattice_parameters, i_scaled_pos)
+                        i_system.lattice_vectors = i_lattice_vectors
+                        i_system.configuration_periodic_dimensions = pbc
+
                     i_system.atom_species = i_atomic_numbers
                     i_system.atom_positions = i_cart_pos
-                    i_system.lattice_vectors = i_lattice_vectors
-                    i_system.configuration_periodic_dimensions = pbc
                     i_scc.energy_total = i_energy
 
                     i_scc.single_configuration_calculation_to_system_ref = i_system
