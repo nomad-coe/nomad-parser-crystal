@@ -31,6 +31,7 @@ integer = r'-?\d+'                                # Integer number
 integer_c = capture(integer)                      # Captures integer number
 word = r'[a-zA-Z]+'                               # A single alphanumeric word
 word_c = capture(word)                            # Captures a single alphanumeric word
+br = r'\r?\n'                                     # Newline that works for both Windows and Unix
 
 
 class CrystalParser(FairdiParser):
@@ -42,7 +43,7 @@ class CrystalParser(FairdiParser):
             code_name='Crystal',
             code_homepage='https://www.crystal.unito.it/',
             mainfile_contents_re=(
-                r'(CRYSTAL\s*\n\d+ \d+ \d+)|(CRYSTAL will run on \d+ processors)|'
+                fr'(CRYSTAL\s*{br}\d+ \d+ \d+)|(CRYSTAL will run on \d+ processors)|'
                 r'(\s*\*\s*CRYSTAL[\d]+\s*\*\s*\*\s*(public|Release) \: [\d\.]+.*\*)|'
                 r'(Executable:\s*[/_\-a-zA-Z0-9]*MPPcrystal)'
             )
@@ -55,21 +56,21 @@ class CrystalParser(FairdiParser):
             filepath,
             quantities=[
                 # Header
-                Quantity("datetime", r'(?:Date\:|date)\s+(.*?)\n', str_operation=lambda x: x, repeats=False),
-                Quantity("hostname", r'(?:Running on\:|hostname)\s+(.*?)\n', str_operation=lambda x: x, repeats=False),
-                Quantity("os", r'(?:system)\s+(.*?)\n', str_operation=lambda x: x, repeats=False),
-                Quantity("user", r'user\s+(.*?)\n', str_operation=lambda x: x, repeats=False),
-                Quantity("input_path", r'(?:Input data|input data in)\s+(.*?)\n', str_operation=lambda x: x, repeats=False),
-                Quantity("output_path", r'(?:Output\:|output data in)\s+(.*?)\n', str_operation=lambda x: x, repeats=False),
-                Quantity("executable_path", r'(?:Executable\:|crystal executable in)\s+(.*?)\n', str_operation=lambda x: x, repeats=False),
-                Quantity("tmpdir", r'(?:Temporary directory\:|temporary directory)\s+(.*?)\n', str_operation=lambda x: x, repeats=False),
-                Quantity("system_type", r'(CRYSTAL|SLAB|POLYMER|HELIX|MOLECULE|EXTERNAL|DLVINPUT)', repeats=False),
-                Quantity("calculation_type", r'(OPTGEOM|FREQCALC|ANHARM)', repeats=False),
+                Quantity("datetime", fr'(?:Date\:|date)\s+(.*?){br}', str_operation=lambda x: x, repeats=False),
+                Quantity("hostname", fr'(?:Running on\:|hostname)\s+(.*?){br}', str_operation=lambda x: x, repeats=False),
+                Quantity("os", fr'(?:system)\s+(.*?){br}', str_operation=lambda x: x, repeats=False),
+                Quantity("user", fr'user\s+(.*?){br}', str_operation=lambda x: x, repeats=False),
+                Quantity("input_path", fr'(?:Input data|input data in)\s+(.*?){br}', str_operation=lambda x: x, repeats=False),
+                Quantity("output_path", fr'(?:Output\:|output data in)\s+(.*?){br}', str_operation=lambda x: x, repeats=False),
+                Quantity("executable_path", fr'(?:Executable\:|crystal executable in)\s+(.*?){br}', str_operation=lambda x: x, repeats=False),
+                Quantity("tmpdir", fr'(?:Temporary directory\:|temporary directory)\s+(.*?){br}', str_operation=lambda x: x, repeats=False),
+                Quantity("system_type", fr'(CRYSTAL|SLAB|POLYMER|HELIX|MOLECULE|EXTERNAL|DLVINPUT)', repeats=False),
+                Quantity("calculation_type", fr'(OPTGEOM|FREQCALC|ANHARM)', repeats=False),
 
                 # Input
                 Quantity(
                     "dftd3",
-                    r'(DFTD3\n[\s\S]*?END\n)',
+                    fr'(DFTD3{br}[\s\S]*?END{br})',
                     sub_parser=UnstructuredTextFileParser(quantities=[
                         Quantity(
                             "version",
@@ -82,37 +83,37 @@ class CrystalParser(FairdiParser):
                 ),
                 Quantity(
                     "grimme",
-                    r'(GRIMME\n[\s\S]*?END\n)',
+                    fr'(GRIMME{br}[\s\S]*?END{br})',
                     repeats=False,
                 ),
                 Quantity(
                     "dft",
-                    r'(DFT\n[\w\s]*?END\n)',
+                    fr'(DFT{br}[\w\s]*?END{br})',
                     sub_parser=UnstructuredTextFileParser(quantities=[
                         Quantity(
                             "exchange",
-                            r'EXCHANGE\n(LDA|VBH|BECKE|PBE|PBESOL|mPW91|PWGGA|SOGGA|WCGGA)',
+                            fr'EXCHANGE{br}(LDA|VBH|BECKE|PBE|PBESOL|mPW91|PWGGA|SOGGA|WCGGA)',
                             repeats=False,
                         ),
                         Quantity(
                             "correlation",
-                            r'CORRELAT\n(PZ|VBH|VWN|LYP|P86|PBE|PBESOL|PWGGA|PWLSD|WL)',
+                            fr'CORRELAT{br}(PZ|VBH|VWN|LYP|P86|PBE|PBESOL|PWGGA|PWLSD|WL)',
                             repeats=False,
                         ),
                         Quantity(
                             "exchange_correlation",
-                            r'(SVWN|BLYP|PBEXC|PBESOLXC|SOGGAXC|B3PW|B3LYP|PBE0|PBESOL0|B1WC|WCILYP|B97H|PBE0-13|HYBRID|NONLOCAL|HSE06|HSESOL|HISS|RSHXLDA|wB97|wB97X|LC-WPBE|LC-WPBESOL|LC-WBLYP|M05-2X|M05|M062X|M06HF|M06L|M06|B2PLYP|B2GPPLYP|mPW2PLYP|DHYBRID)',
+                            fr'(SVWN|BLYP|PBEXC|PBESOLXC|SOGGAXC|B3PW|B3LYP|PBE0|PBESOL0|B1WC|WCILYP|B97H|PBE0-13|HYBRID|NONLOCAL|HSE06|HSESOL|HISS|RSHXLDA|wB97|wB97X|LC-WPBE|LC-WPBESOL|LC-WBLYP|M05-2X|M05|M062X|M06HF|M06L|M06|B2PLYP|B2GPPLYP|mPW2PLYP|DHYBRID)',
                             repeats=False,
                         ),
                     ]),
                     repeats=False,
                 ),
                 Quantity("program_version", r'\s*\*\s*CRYSTAL(.*?)\s*\*\s*', repeats=False, dtype=str),
-                Quantity("distribution", r'\n \*\s*(.*? \: .*? - .*?)\s*\*\n', str_operation=lambda x: x, repeats=False),
-                Quantity("start_timestamp", r' EEEEEEEEEE STARTING  DATE\s+(.*? TIME .*?)\n', str_operation=lambda x: x, repeats=False),
-                Quantity("title", r' EEEEEEEEEE STARTING  DATE.*?\n\s*(.*?)\n\n', str_operation=lambda x: x, repeats=False),
-                Quantity("hamiltonian_type", r' (KOHN-SHAM HAMILTONIAN|HARTREE-FOCK HAMILTONIAN)', str_operation=lambda x: x, repeats=False),
-                Quantity("xc_out", r' \(EXCHANGE\)\[CORRELATION\] FUNCTIONAL:(\([\s\S]+?\)\[[\s\S]+?\])', str_operation=lambda x: x, repeats=False),
+                Quantity("distribution", fr'{br} \*\s*({word} : \d+[\.\d+]*)', str_operation=lambda x: x, repeats=False),
+                Quantity("start_timestamp", fr' EEEEEEEEEE STARTING  DATE\s+(.*? TIME .*?){br}', str_operation=lambda x: x, repeats=False),
+                Quantity("title", fr' EEEEEEEEEE STARTING  DATE.*?{br}\s*(.*?){br}{br}', str_operation=lambda x: x, repeats=False),
+                Quantity("hamiltonian_type", fr' (KOHN-SHAM HAMILTONIAN|HARTREE-FOCK HAMILTONIAN)', str_operation=lambda x: x, repeats=False),
+                Quantity("xc_out", fr' \(EXCHANGE\)\[CORRELATION\] FUNCTIONAL:(\([\s\S]+?\)\[[\s\S]+?\])', str_operation=lambda x: x, repeats=False),
                 Quantity("hybrid_out", fr' HYBRID EXCHANGE - PERCENTAGE OF FOCK EXCHANGE\s+{flt_c}', repeats=False),
 
                 # Geometry optimization settings
@@ -128,71 +129,101 @@ class CrystalParser(FairdiParser):
                 Quantity('sorting_of_energy_points', fr'SORTING OF ENERGY POINTS\:\s+{word_c}', repeats=False),
 
                 # System
-                Quantity("crystal_family", r' CRYSTAL FAMILY\s*:\s*([\s\S]+?)\s*\n', str_operation=lambda x: x, repeats=False),
-                Quantity("crystal_class", r' CRYSTAL CLASS  \(GROTH - 1921\)\s*:\s*([\s\S]+?)\s*\n', str_operation=lambda x: x, repeats=False),
-                Quantity("space_group", r' SPACE GROUP \(CENTROSYMMETRIC\)\s*:\s*([\s\S]+?)\s*\n', str_operation=lambda x: x, repeats=False),
-                Quantity("dimensionality", r' GEOMETRY FOR WAVE FUNCTION - DIMENSIONALITY OF THE SYSTEM\s+(\d)', repeats=False),
+                Quantity("crystal_family", fr' CRYSTAL FAMILY\s*:\s*([\s\S]+?)\s*{br}', str_operation=lambda x: x, repeats=False),
+                Quantity("crystal_class", fr' CRYSTAL CLASS  \(GROTH - 1921\)\s*:\s*([\s\S]+?)\s*{br}', str_operation=lambda x: x, repeats=False),
+                Quantity("space_group", fr' SPACE GROUP \(CENTROSYMMETRIC\)\s*:\s*([\s\S]+?)\s*{br}', str_operation=lambda x: x, repeats=False),
+                Quantity("dimensionality", fr' GEOMETRY FOR WAVE FUNCTION - DIMENSIONALITY OF THE SYSTEM\s+(\d)', repeats=False),
                 Quantity(
                     'lattice_parameters',
-                    fr' PRIMITIVE CELL - CENTRING CODE\s*[\s\S]*?\s*VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3\n' +
+                    fr' PRIMITIVE CELL - CENTRING CODE\s*[\s\S]*?\s*VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3{br}' +
                     fr'         A              B              C           ALPHA      BETA       GAMMA\s*' +
-                    fr'{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\n',
+                    fr'{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}',
                     shape=(6),
                     dtype=np.float64,
                     repeats=False,
                 ),
                 Quantity(
                     "labels_positions",
-                    fr' ATOMS IN THE ASYMMETRIC UNIT\s+{integer} - ATOMS IN THE UNIT CELL:\s+{integer}\n' +
-                    fr'     ATOM              X/A                 Y/B                 Z/C\s*\n' +
+                    fr' ATOMS IN THE ASYMMETRIC UNIT\s+{integer} - ATOMS IN THE UNIT CELL:\s+{integer}{br}' +
+                    fr'     ATOM              X/A                 Y/B                 Z/C\s*{br}' +
                     re.escape(' *******************************************************************************') +
-                    fr'((?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}\n)+)',
+                    fr'((?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}{br})+)',
                     shape=(-1, 7),
                     dtype=str,
                     repeats=False,
                 ),
                 Quantity(
+                    'lattice_parameters_supercell',
+                    fr' LATTICE PARAMETERS  \(ANGSTROM AND DEGREES\){br}' +
+                    fr'       A          B          C         ALPHA     BETA     GAMMA        VOLUME{br}' +
+                    fr'\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt}{br}' +
+                    fr'{br}{br} \*\*\*\* ATOMS BELONGING TO THE SUPERCELL',
+                    shape=(6),
+                    dtype=np.float64,
+                    repeats=False,
+                ),
+                Quantity(
+                    'labels_positions_supercell',
+                    fr' \*\*\*\* ATOMS IN THE SUPERCELL REORDERED FOR PHONON CALCULATION{br}' +
+                    fr'      ATOMS IN THE SMALL CELL ON TOP{br}{br}' +
+                    fr' LABEL AT\.NO\.      COORDINATES \(ANGSTROM\){br}' +
+                    fr'((?:\s+{integer}\s+{integer}\s+{flt}\s+{flt}\s+{flt}{br})+)',
+                    shape=(-1, 5),
+                    dtype=str,
+                    repeats=False,
+                ),
+                # Quantity(
+                    # 'lattice_parameters_external',
+                    # fr' LATTICE PARAMETERS \(ANGSTROMS AND DEGREES\) - BOHR = {flt} ANGSTROM{br}' +
+                    # fr' PRIMITIVE CELL - CENTRING CODE\s*[\s\S]*?\s*VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3{br}' +
+                    # fr'         A              B              C           ALPHA      BETA       GAMMA\s*' +
+                    # fr'{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}',
+                    # shape=(6),
+                    # dtype=np.float64,
+                    # repeats=False,
+                # ),
+                Quantity(
                     'lattice_vectors_restart',
-                    fr' DIRECT LATTICE VECTOR COMPONENTS \(ANGSTROM\)\n' +
-                    fr'\s+{flt_c}\s+{flt_c}\s+{flt_c}\n' +
-                    fr'\s+{flt_c}\s+{flt_c}\s+{flt_c}\n' +
-                    fr'\s+{flt_c}\s+{flt_c}\s+{flt_c}\n',
+                    fr' DIRECT LATTICE VECTOR COMPONENTS \(ANGSTROM\){br}' +
+                    fr'\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}' +
+                    fr'\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}' +
+                    fr'\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}',
                     shape=(3, 3),
                     dtype=np.float64,
                     repeats=False,
                 ),
                 Quantity(
                     "labels_positions_restart",
-                    fr'   ATOM N\.AT\.  SHELL    X\(A\)      Y\(A\)      Z\(A\)      EXAD       N\.ELECT\.\n' +
+                    fr'   ATOM N\.AT\.  SHELL    X\(A\)      Y\(A\)      Z\(A\)      EXAD       N\.ELECT\.{br}' +
                     re.escape(' *******************************************************************************') +
-                    fr'((?:\s+{integer}\s+{integer}\s+{word}\s+{integer}\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}\n)+)',
+                    fr'((?:\s+{integer}\s+{integer}\s+{word}\s+{integer}\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}{br})+)',
                     shape=(-1, 9),
                     dtype=str,
                     repeats=False,
                 ),
-                Quantity("symmops", r' NUMBER OF SYMMETRY OPERATORS\s*:\s*(\d)\n', repeats=False),
+                Quantity("symmops", fr' NUMBER OF SYMMETRY OPERATORS\s*:\s*(\d){br}', repeats=False),
 
                 # Method
                 Quantity(
                     'basis_set',
                     re.escape(r' *******************************************************************************') + 
-                    r'\n LOCAL ATOMIC FUNCTIONS BASIS SET\n' +
+                    fr'{br} LOCAL ATOMIC FUNCTIONS BASIS SET{br}' +
                     re.escape(r' *******************************************************************************') +
-                    r'\n   ATOM   X\(AU\)   Y\(AU\)   Z\(AU\)  N. TYPE  EXPONENT  S COEF   P COEF   D/F/G COEF\n' + 
-                    r'([\s\S]*?)\n INFORMATION',
+                    fr'{br}   ATOM   X\(AU\)   Y\(AU\)   Z\(AU\)  N. TYPE  EXPONENT  S COEF   P COEF   D/F/G COEF{br}' + 
+                    fr'([\s\S]*?){br} INFORMATION',
                     sub_parser=UnstructuredTextFileParser(quantities=[
                         Quantity(
                             "basis_sets",
-                            fr'({ws}{integer}{ws}{word}{ws}{flt}{ws}{flt}{ws}{flt}\n(?:(?:\s+(?:\d+-\s+)?\d+\s+(?:S|P|SP|D|F|G)\s*\n[\s\S]*?(?:{ws}{flt}(?:{ws})?{flt}(?:{ws})?{flt}(?:{ws})?{flt}\n)+)+)?)',
+                            fr'({ws}{integer}{ws}{word}{ws}{flt}{ws}{flt}{ws}{flt}{br}(?:(?:\s+(?:\d+-\s+)?\d+\s+(?:S|P|SP|D|F|G)\s*{br}[\s\S]*?(?:{ws}{flt}(?:{ws})?{flt}(?:{ws})?{flt}(?:{ws})?{flt}{br})+)+)?)',
                             sub_parser=UnstructuredTextFileParser(quantities=[
                                 Quantity(
                                     "species",
-                                    fr'({ws}{integer}{ws}{word}{ws}{flt}{ws}{flt}{ws}{flt}\n)',
+                                    fr'({ws}{integer}{ws}{word}{ws}{flt}{ws}{flt}{ws}{flt}{br})',
                                     repeats=False,
                                 ),
                                 Quantity(
                                     "shells",
-                                    fr'(\s+(?:\d+-\s+)?\d+\s+(?:S|P|SP|D|F|G)\s*\n[\s\S]*?(?:{ws}{flt}(?:{ws})?{flt}(?:{ws})?{flt}(?:{ws})?{flt}\n)+)',
+                                    fr'(\s+(?:\d+-\s+)?\d+\s+(?:S|P|SP|D|F|G)\s*{br}[\s\S]*?(?:{ws}{flt}(?:{ws})?{flt}(?:{ws})?{flt}(?:{ws})?{flt}{br})+)',
                                     sub_parser=UnstructuredTextFileParser(quantities=[
                                         Quantity(
                                             "shell_range",
@@ -202,13 +233,13 @@ class CrystalParser(FairdiParser):
                                         ),
                                         Quantity(
                                             "shell_type",
-                                            r'((?:S|P|SP|D|F|G))\s*\n',
+                                            fr'((?:S|P|SP|D|F|G))\s*{br}',
                                             str_operation=lambda x: x.strip(),
                                             repeats=False,
                                         ),
                                         Quantity(
                                             "shell_coefficients",
-                                            fr'{ws}({flt})(?:{ws})?({flt})(?:{ws})?({flt})(?:{ws})?({flt})\n',
+                                            fr'{ws}({flt})(?:{ws})?({flt})(?:{ws})?({flt})(?:{ws})?({flt}){br}',
                                             repeats=True,
                                             dtype=np.float64,
                                             shape=(4)
@@ -222,10 +253,10 @@ class CrystalParser(FairdiParser):
                     ]),
                     repeats=False,
                 ),
-                Quantity("fock_ks_matrix_mixing", r' INFORMATION \*+.*?\*+.*?\:\s+FOCK/KS MATRIX MIXING SET TO\s+' + integer_c + r'\s+\%\n*', repeats=False),
-                Quantity("coulomb_bipolar_buffer", r' INFORMATION \*+.*?\*+.*?\:\s+COULOMB BIPOLAR BUFFER SET TO\s+' + flt_c + r' Mb\n*', repeats=False),
-                Quantity("exchange_bipolar_buffer", r' INFORMATION \*+.*?\*+.*?\:\s+EXCHANGE BIPOLAR BUFFER SET TO\s+' + flt_c + r' Mb\n*', repeats=False),
-                Quantity("toldee", r' INFORMATION \*+ TOLDEE \*+\s*\*+ SCF TOL ON TOTAL ENERGY SET TO\s+' + flt_c + r'\n', repeats=False),
+                Quantity("fock_ks_matrix_mixing", fr' INFORMATION \*+.*?\*+.*?\:\s+FOCK/KS MATRIX MIXING SET TO\s+' + integer_c + r'\s+\%{br}*', repeats=False),
+                Quantity("coulomb_bipolar_buffer", fr' INFORMATION \*+.*?\*+.*?\:\s+COULOMB BIPOLAR BUFFER SET TO\s+' + flt_c + r' Mb{br}*', repeats=False),
+                Quantity("exchange_bipolar_buffer", fr' INFORMATION \*+.*?\*+.*?\:\s+EXCHANGE BIPOLAR BUFFER SET TO\s+' + flt_c + r' Mb{br}*', repeats=False),
+                Quantity("toldee", fr' INFORMATION \*+ TOLDEE \*+\s*\*+ SCF TOL ON TOTAL ENERGY SET TO\s+' + flt_c + r'{br}', repeats=False),
                 Quantity("n_atoms_per_cell", r' N\. OF ATOMS PER CELL\s+' + integer_c, repeats=False),
                 Quantity("n_shells", r' NUMBER OF SHELLS\s+' + integer_c, repeats=False),
                 Quantity("n_ao", r' NUMBER OF AO\s+' + integer_c, repeats=False),
@@ -238,8 +269,8 @@ class CrystalParser(FairdiParser):
                 Quantity("tol_pseudo_overlap_f", r' EXCHANGE PSEUDO OVP \(F\(G\)\)\s+\(T4\) ' + flt_crystal_c, str_operation=to_float, repeats=False),
                 Quantity("tol_pseudo_overlap_p", r' EXCHANGE PSEUDO OVP \(P\(G\)\)\s+\(T5\) ' + flt_crystal_c, str_operation=to_float, repeats=False),
                 Quantity("pole_order", r' POLE ORDER IN MONO ZONE\s+' + integer_c, repeats=False),
-                Quantity("calculation_type", r' TYPE OF CALCULATION \:\s+(.*?\n\s+.*?)\n', str_operation=lambda x: " ".join(x.split()), repeats=False),
-                Quantity('xc_functional', r' \(EXCHANGE\)\[CORRELATION\] FUNCTIONAL:(\(.+\)\[.+\])\n', str_operation=lambda x: x, repeats=False,),
+                Quantity("calculation_type", fr' TYPE OF CALCULATION \:\s+(.*?{br}\s+.*?){br}', str_operation=lambda x: " ".join(x.split()), repeats=False),
+                Quantity('xc_functional', fr' \(EXCHANGE\)\[CORRELATION\] FUNCTIONAL:(\(.+\)\[.+\]){br}', str_operation=lambda x: x, repeats=False,),
                 Quantity("cappa", r'CAPPA:IS1\s+' + integer_c + r';IS2\s+' + integer_c + r';IS3\s+' + integer_c + '; K PTS MONK NET\s+' + integer_c + r'; SYMMOPS:K SPACE\s+' + integer_c + ';G SPACE\s+' + integer_c, repeats=False),
                 Quantity('scf_max_iteration', r' MAX NUMBER OF SCF CYCLES\s+' + integer_c, repeats=False),
                 Quantity('convergenge_deltap', r'CONVERGENCE ON DELTAP\s+' + flt_crystal_c, str_operation=to_float, repeats=False), Quantity('weight_f', r'WEIGHT OF F\(I\) IN F\(I\+1\)\s+' + integer_c, repeats=False),
@@ -258,20 +289,20 @@ class CrystalParser(FairdiParser):
                             'scf_iterations',
                             r'( CHARGE NORMALIZATION FACTOR[\s\S]*? (?:TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT PDIG|== SCF ENDED))',
                             sub_parser=UnstructuredTextFileParser(quantities=[
-                                Quantity('charge_normalization_factor', fr' CHARGE NORMALIZATION FACTOR{ws}{flt}\n', repeats=False),
-                                Quantity('total_atomic_charges', fr' TOTAL ATOMIC CHARGES:\n(?:{ws}{flt})+\n', repeats=False),
-                                Quantity('QGAM', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT QGAM        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}\n', repeats=False),
-                                Quantity('BIEL2', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT BIEL2        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}\n', repeats=False),
-                                Quantity('energy_kinetic', fr' ::: KINETIC ENERGY\s+{flt_c}\n', unit=ureg.hartree, repeats=False),
-                                Quantity('energy_ee', fr' ::: TOTAL E-E\s+{flt_c}\n', unit=ureg.hartree, repeats=False),
-                                Quantity('energy_en_ne', fr' ::: TOTAL E-N \+ N-E\s+{flt_c}\n', unit=ureg.hartree, repeats=False),
-                                Quantity('energy_nn', fr' ::: TOTAL N-N\s+{flt_c}\n', unit=ureg.hartree, repeats=False),
-                                Quantity('virial_coefficient', fr' ::: VIRIAL COEFFICIENT\s+{flt_c}\n', repeats=False),
-                                Quantity('TOTENY', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT TOTENY        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}\n', repeats=False),
-                                Quantity('integrated_density', fr' NUMERICALLY INTEGRATED DENSITY{ws}{flt}\n', repeats=False),
-                                Quantity('NUMDFT', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT NUMDFT        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}\n', repeats=False),
-                                Quantity('energies', fr' CYC{ws}{integer}{ws}ETOT\(AU\){ws}{flt_c}{ws}DETOT{ws}{flt_c}{ws}tst{ws}{flt}{ws}PX{ws}{flt}\n', repeats=False, dtype=np.float64, unit=ureg.hartree),
-                                Quantity('FDIK', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT FDIK        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}\n', repeats=False),
+                                Quantity('charge_normalization_factor', fr' CHARGE NORMALIZATION FACTOR{ws}{flt}{br}', repeats=False),
+                                Quantity('total_atomic_charges', fr' TOTAL ATOMIC CHARGES:{br}(?:{ws}{flt})+{br}', repeats=False),
+                                Quantity('QGAM', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT QGAM        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}{br}', repeats=False),
+                                Quantity('BIEL2', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT BIEL2        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}{br}', repeats=False),
+                                Quantity('energy_kinetic', fr' ::: KINETIC ENERGY\s+{flt_c}{br}', unit=ureg.hartree, repeats=False),
+                                Quantity('energy_ee', fr' ::: TOTAL E-E\s+{flt_c}{br}', unit=ureg.hartree, repeats=False),
+                                Quantity('energy_en_ne', fr' ::: TOTAL E-N \+ N-E\s+{flt_c}{br}', unit=ureg.hartree, repeats=False),
+                                Quantity('energy_nn', fr' ::: TOTAL N-N\s+{flt_c}{br}', unit=ureg.hartree, repeats=False),
+                                Quantity('virial_coefficient', fr' ::: VIRIAL COEFFICIENT\s+{flt_c}{br}', repeats=False),
+                                Quantity('TOTENY', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT TOTENY        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}{br}', repeats=False),
+                                Quantity('integrated_density', fr' NUMERICALLY INTEGRATED DENSITY{ws}{flt}{br}', repeats=False),
+                                Quantity('NUMDFT', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT NUMDFT        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}{br}', repeats=False),
+                                Quantity('energies', fr' CYC{ws}{integer}{ws}ETOT\(AU\){ws}{flt_c}{ws}DETOT{ws}{flt_c}{ws}tst{ws}{flt}{ws}PX{ws}{flt}{br}', repeats=False, dtype=np.float64, unit=ureg.hartree),
+                                Quantity('FDIK', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT FDIK        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}{br}', repeats=False),
                             ]),
                             repeats=True,
                         ),
@@ -289,33 +320,33 @@ class CrystalParser(FairdiParser):
                 # Geometry optimization steps
                 Quantity(
                     "geo_opt",
-                    re.escape(r' *******************************************************************************') + r'\n' +
-                    r' \*                             OPTIMIZATION STARTS                             \*\n' +
+                    re.escape(r' *******************************************************************************') + fr'{br}' +
+                    fr' \*                             OPTIMIZATION STARTS                             \*{br}' +
                     r'([\s\S]*?' + 
-                    re.escape(r' ******************************************************************') + r'\n' +
-                    fr'\s*\* OPT END - CONVERGED \* E\(AU\)\:\s+{flt}\s+POINTS\s+{integer})\s+\*\n',
+                    re.escape(r' ******************************************************************') + fr'{br}' +
+                    fr'\s*\* OPT END - CONVERGED \* E\(AU\)\:\s+{flt}\s+POINTS\s+{integer})\s+\*{br}',
                     sub_parser=UnstructuredTextFileParser(quantities=[
                         Quantity(
                             'geo_opt_step',
-                            fr' COORDINATE AND CELL OPTIMIZATION - POINT\s+{integer}\n' +
+                            fr' COORDINATE AND CELL OPTIMIZATION - POINT\s+{integer}{br}' +
                             fr'([\s\S]*?)' +
                             fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT OPTI',
                             sub_parser=UnstructuredTextFileParser(quantities=[
                                 Quantity(
                                     'lattice_parameters',
-                                    fr' PRIMITIVE CELL - CENTRING CODE [\s\S]*?VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3\n' +
+                                    fr' PRIMITIVE CELL - CENTRING CODE [\s\S]*?VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3{br}' +
                                     fr'         A              B              C           ALPHA      BETA       GAMMA\s*' +
-                                    fr'{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\n',
+                                    fr'{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}',
                                     shape=(6),
                                     dtype=np.float64,
                                     repeats=False,
                                 ),
                                 Quantity(
                                     "labels_positions",
-                                    fr' ATOMS IN THE ASYMMETRIC UNIT\s+{integer} - ATOMS IN THE UNIT CELL:\s+{integer}\n' +
-                                    fr'     ATOM              X/A                 Y/B                 Z/C\s*\n' +
+                                    fr' ATOMS IN THE ASYMMETRIC UNIT\s+{integer} - ATOMS IN THE UNIT CELL:\s+{integer}{br}' +
+                                    fr'     ATOM              X/A                 Y/B                 Z/C\s*{br}' +
                                     re.escape(' *******************************************************************************') +
-                                    fr'((?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}\n)+)',
+                                    fr'((?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}{br})+)',
                                     shape=(-1, 7),
                                     dtype=str,
                                     repeats=False,
@@ -324,7 +355,7 @@ class CrystalParser(FairdiParser):
                             ]),
                             repeats=True,
                         ),
-                        Quantity('converged', fr' \* OPT END - ([\s\S]*?) \* E\(AU\)\:\s+{flt}\s+POINTS\s+{integer}\s+\*\n', repeats=False),
+                        Quantity('converged', fr' \* OPT END - ([\s\S]*?) \* E\(AU\)\:\s+{flt}\s+POINTS\s+{integer}\s+\*{br}', repeats=False),
                     ]),
                     repeats=False,
                 ),
@@ -332,28 +363,28 @@ class CrystalParser(FairdiParser):
                 # Band structure
                 Quantity(
                     "band_structure",
-                    re.escape(r' *******************************************************************************') + r'\n' +
-                    fr' \*                                                                             \*\n' +
-                    r' \*  BAND STRUCTURE                                                             \*\n' +
-                    r'[\s\S]*?' + 
-                    fr' \*  FROM BAND\s+{integer} TO BAND\s+{integer}\s+\*\n' +
-                    fr' \*  TOTAL OF\s+{integer} K-POINTS ALONG THE PATH\s+\*\n' +
-                    fr' \*                                                                             \*\n' +
-                    re.escape(r' *******************************************************************************') + r'\n' +
-                    r'([\s\S]*?' + 
-                    fr' ENERGY RANGE \(A\.U\.\)\s*{flt} - \s*{flt} EFERMI\s*{flt_c}\n)',
+                    re.escape(fr' *******************************************************************************') + fr'{br}' +
+                    fr' \*                                                                             \*{br}' +
+                    fr' \*  BAND STRUCTURE                                                             \*{br}' +
+                    fr'[\s\S]*?' + 
+                    fr' \*  FROM BAND\s+{integer} TO BAND\s+{integer}\s+\*{br}' +
+                    fr' \*  TOTAL OF\s+{integer} K-POINTS ALONG THE PATH\s+\*{br}' +
+                    fr' \*                                                                             \*{br}' +
+                    re.escape(r' *******************************************************************************') + fr'{br}' +
+                    fr'([\s\S]*?' + 
+                    fr' ENERGY RANGE \(A\.U\.\)\s*{flt} - \s*{flt} EFERMI\s*{flt_c}{br})',
                     sub_parser=UnstructuredTextFileParser(quantities=[
                         Quantity(
                             'segments',
-                            fr' (LINE\s+{integer} \( {flt} {flt} {flt}: {flt} {flt} {flt}\) IN TERMS OF PRIMITIVE LATTICE VECTORS\n' +
-                            fr'\s+{integer} POINTS - SHRINKING_FACTOR {integer}\n' +
-                            fr' CARTESIAN COORD\.\s+\( {flt} {flt} {flt}\):\( {flt} {flt} {flt}\) STEP\s+{flt}\n\n\n' +
-                            fr'(?:\s+{integer}\([\d/\s]+?\)\n' +
-                            fr'(?:\s*{flt})+\n\n)+)',
+                            fr' (LINE\s+{integer} \( {flt} {flt} {flt}: {flt} {flt} {flt}\) IN TERMS OF PRIMITIVE LATTICE VECTORS{br}' +
+                            fr'\s+{integer} POINTS - SHRINKING_FACTOR {integer}{br}' +
+                            fr' CARTESIAN COORD\.\s+\( {flt} {flt} {flt}\):\( {flt} {flt} {flt}\) STEP\s+{flt}{br}{br}{br}' +
+                            fr'(?:\s+{integer}\([\d/\s]+?\){br}' +
+                            fr'(?:\s*{flt})+{br}{br})+)',
                             sub_parser=UnstructuredTextFileParser(quantities=[
                                 Quantity(
                                     'start_end',
-                                    fr'LINE\s+{integer} \( {flt_c} {flt_c} {flt_c}: {flt_c} {flt_c} {flt_c}\) IN TERMS OF PRIMITIVE LATTICE VECTORS\n',
+                                    fr'LINE\s+{integer} \( {flt_c} {flt_c} {flt_c}: {flt_c} {flt_c} {flt_c}\) IN TERMS OF PRIMITIVE LATTICE VECTORS{br}',
                                     type=np.float64,
                                     shape=(2, 3),
                                     repeats=False,
@@ -365,13 +396,13 @@ class CrystalParser(FairdiParser):
                                 ),
                                 Quantity(
                                     'shrinking_factor',
-                                    fr'SHRINKING_FACTOR {integer_c}\n',
+                                    fr'SHRINKING_FACTOR {integer_c}{br}',
                                     repeats=False,
                                 ),
                                 Quantity(
                                     'intervals',
-                                    fr'\s+{integer}\(\s*([\d/\s]+?)\)\n' +
-                                    fr'(?:\s*{flt})+\n\n',
+                                    fr'\s+{integer}\(\s*([\d/\s]+?)\){br}' +
+                                    fr'(?:\s*{flt})+{br}{br}',
                                     str_operation=lambda x: x,
                                     repeats=True,
                                 ),
@@ -386,15 +417,15 @@ class CrystalParser(FairdiParser):
                 # DOS
                 Quantity(
                     'dos',
-                    r' RESTART WITH NEW K POINTS NET\n' +
-                    r'([\s\S]+?' +
-                    ' TOTAL AND PROJECTED DENSITY OF STATES - FOURIER LEGENDRE METHOD\n' +
-                    r'[\s\S]+?)' +
-                    r' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT DOSS        TELAPSE',
+                    fr' RESTART WITH NEW K POINTS NET{br}' +
+                    fr'([\s\S]+?' +
+                    fr' TOTAL AND PROJECTED DENSITY OF STATES - FOURIER LEGENDRE METHOD{br}' +
+                    fr'[\s\S]+?)' +
+                    fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT DOSS        TELAPSE',
                     sub_parser=UnstructuredTextFileParser(quantities=[
                         Quantity(
                             'k_points',
-                            fr' \*\*\* K POINTS COORDINATES (OBLIQUE COORDINATES IN UNITS OF IS = {int})\n',
+                            fr' \*\*\* K POINTS COORDINATES (OBLIQUE COORDINATES IN UNITS OF IS = {int}){br}',
                             repeats=False,
                         ),
                         Quantity(
@@ -412,23 +443,23 @@ class CrystalParser(FairdiParser):
                     ]),
                     repeats=False,
                 ),
-                Quantity("end_timestamp", r' EEEEEEEEEE TERMINATION  DATE\s+(.*? TIME .*?)\n', str_operation=lambda x: x, repeats=False),
+                Quantity("end_timestamp", fr' EEEEEEEEEE TERMINATION  DATE\s+(.*? TIME .*?){br}', str_operation=lambda x: x, repeats=False),
 
                 # Forces
                 Quantity(
                     'forces',
-                    r' CARTESIAN FORCES IN HARTREE/BOHR \(ANALYTICAL\)\n'
-                    r'   ATOM                     X                   Y                   Z\n' + 
-                    r'((?:' + ws + integer + ws + integer + ws + flt + ws + flt + ws + flt + r'\n)*)',
+                    fr' CARTESIAN FORCES IN HARTREE/BOHR \(ANALYTICAL\){br}'
+                    fr'   ATOM                     X                   Y                   Z{br}' + 
+                    fr'((?:' + ws + integer + ws + integer + ws + flt + ws + flt + ws + flt + fr'{br})*)',
                     shape=(-1, 5),
                     dtype=str,
                     repeats=False,
                 ),
-                Quantity("end_timestamp", r' EEEEEEEEEE TERMINATION  DATE\s+(.*? TIME .*?)\n', str_operation=lambda x: x, repeats=False),
+                Quantity("end_timestamp", fr' EEEEEEEEEE TERMINATION  DATE\s+(.*? TIME .*?){br}', str_operation=lambda x: x, repeats=False),
 
                 # Filepaths
-                Quantity("f25_filepath1", r'file fort\.25 saved as ([\s\S]+?)\n', str_operation=lambda x: x, repeats=False),
-                Quantity("f25_filepath2", r'BAND/MAPS/DOSS data for plotting fort.25 saved as ([\s\S]+?)\n', str_operation=lambda x: x, repeats=False),
+                Quantity("f25_filepath1", fr'file fort\.25 saved as ([\s\S]+?){br}', str_operation=lambda x: x, repeats=False),
+                Quantity("f25_filepath2", fr'BAND/MAPS/DOSS data for plotting fort.25 saved as ([\s\S]+?){br}', str_operation=lambda x: x, repeats=False),
             ]
         )
 
@@ -442,24 +473,24 @@ class CrystalParser(FairdiParser):
             quantities=[
                 # Band structure energies
                 Quantity("segments",
-                    fr'(-\%-0BAND\s*{integer}\s*{integer}\s?{flt}\s?{flt}\s?{flt}\n' +
-                    fr'\s*{flt}\s*{flt}\n' +
-                    fr'\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\n' +
+                    fr'(-\%-0BAND\s*{integer}\s*{integer}\s?{flt}\s?{flt}\s?{flt}{br}' +
+                    fr'\s*{flt}\s*{flt}{br}' +
+                    fr'\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}{br}' +
                     fr'(?:\s*{flt})+)',
                     sub_parser=UnstructuredTextFileParser(quantities=[
                         Quantity(
                             'first_row',
-                            fr'-\%-0BAND\s*{integer_c}\s*{integer_c}\s?{flt_c}\s?{flt_c}\s?{flt_c}\n',
+                            fr'-\%-0BAND\s*{integer_c}\s*{integer_c}\s?{flt_c}\s?{flt_c}\s?{flt_c}{br}',
                             repeats=False,
                         ),
                         Quantity(
                             'second_row',
-                            fr'\s?{flt_c}\s?{flt_c}\n',
+                            fr'\s?{flt_c}\s?{flt_c}{br}',
                             repeats=False,
                         ),
                         Quantity(
                             'energies',
-                            fr'\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\n' +
+                            fr'\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}{br}' +
                             fr'((?:{flt}\s?)+)',
                             str_operation=lambda x: x,
                             repeats=False,
@@ -469,24 +500,24 @@ class CrystalParser(FairdiParser):
                 ),
                 # DOS values
                 Quantity("dos",
-                    fr'(-\%-0DOSS\s*{integer}\s*{integer}\s?{flt}\s?{flt}\s?{flt}\n' +
-                    fr'\s*{flt}\s?{flt}\n' +
-                    fr'\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\n' +
+                    fr'(-\%-0DOSS\s*{integer}\s*{integer}\s?{flt}\s?{flt}\s?{flt}{br}' +
+                    fr'\s*{flt}\s?{flt}{br}' +
+                    fr'\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}{br}' +
                     fr'(?:\s*{flt})+)',
                     sub_parser=UnstructuredTextFileParser(quantities=[
                         Quantity(
                             'first_row',
-                            fr'-\%-0DOSS\s*{integer_c}\s*{integer_c}\s?{flt_c}\s?{flt_c}\s?{flt_c}\n',
+                            fr'-\%-0DOSS\s*{integer_c}\s*{integer_c}\s?{flt_c}\s?{flt_c}\s?{flt_c}{br}',
                             repeats=False,
                         ),
                         Quantity(
                             'second_row',
-                            fr'\s?{flt_c}\s?{flt_c}\n',
+                            fr'\s?{flt_c}\s?{flt_c}{br}',
                             repeats=False,
                         ),
                         Quantity(
                             'values',
-                            fr'\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\n' +
+                            fr'\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}{br}' +
                             fr'((?:\s*{flt})+)',
                             str_operation=lambda x: x,
                             repeats=False,
@@ -527,11 +558,9 @@ class CrystalParser(FairdiParser):
         run.x_crystal_tmpdir = out["tmpdir"]
         run.x_crystal_executable_path = out["executable_path"]
         distribution = out["distribution"]
-        dist, rest = distribution.split(" : ", 1)
-        minor, rest = rest.split(" - ", 1)
+        dist, minor = distribution.split(" : ", 1)
         run.x_crystal_distribution = dist
         run.x_crystal_version_minor = minor
-        run.x_crystal_version_date = rest
         title = out["title"]
         if title is not None:
             run.x_crystal_run_title = title.strip()
@@ -541,18 +570,33 @@ class CrystalParser(FairdiParser):
         # System. Normally read from lattice parameters and scaled positions,
         # for restarts reads the cell and positions in cartesian coordinates.
         system = run.m_create(section_system)
+        lattice_parameters_supercell = out["lattice_parameters_supercell"]
         lattice_parameters = out["lattice_parameters"]
-        if lattice_parameters is None:
-            lattice_vectors = out["lattice_vectors_restart"] * ureg.angstrom
-            labels_positions = out["labels_positions_restart"]
+        # lattice_parameters_external = out["lattice_parameters_external"]
+        lattice_vectors_restart = out["lattice_vectors_restart"]
+        if lattice_parameters_supercell is not None:
+            lattice_vectors = atomutils.cellpar_to_cell(lattice_parameters_supercell, degrees=True)
+            labels_positions = out["labels_positions_supercell"]
             atomic_numbers = labels_positions[:, 1].astype(np.int)
-            cart_pos = labels_positions[:, 4:7].astype(np.float64) * ureg.angstrom
-        else:
+            cart_pos = labels_positions[:, 2:5].astype(np.float64)
+        elif lattice_parameters is not None:
             labels_positions = out["labels_positions"]
             lattice_vectors = atomutils.cellpar_to_cell(lattice_parameters, degrees=True)
             atomic_numbers = labels_positions[:, 2].astype(np.int)
             scaled_pos = labels_positions[:, 4:7].astype(np.float64)
             cart_pos, lattice_vectors = to_system(lattice_parameters, scaled_pos)
+        elif lattice_vectors_restart is not None:
+            lattice_vectors = lattice_vectors_restart * ureg.angstrom
+            labels_positions = out["labels_positions_restart"]
+            atomic_numbers = labels_positions[:, 1].astype(np.int)
+            cart_pos = labels_positions[:, 4:7].astype(np.float64) * ureg.angstrom
+        # elif lattice_parameters_external is not None:
+            # lattice_vectors = atomutils.cellpar_to_cell(lattice_parameters_external, degrees=True)
+            # print(lattice_vectors)
+            # labels_positions = out["labels_positions"]
+            # print(labels_positions)
+            # atomic_numbers = labels_positions[:, 1].astype(np.int)
+            # cart_pos = labels_positions[:, 2:5].astype(np.float64)
 
         system.lattice_vectors = lattice_vectors
         system.atom_positions = cart_pos
@@ -602,7 +646,7 @@ class CrystalParser(FairdiParser):
                     method.m_add_sub_section(section_method.section_XC_functionals, xc)
                 method.XC_functional = to_libxc_name(functionals)
         # If methodology not reported in input, try to read from output
-        else:
+        if dft is None or not functionals:
             hamiltonian_type = out["hamiltonian_type"]
             if hamiltonian_type == "HARTREE-FOCK HAMILTONIAN":
                 xc = section_XC_functionals()
@@ -927,16 +971,17 @@ def to_libxc(exchange, correlation, exchange_correlation):
     if exchange_correlation:
         exchange_correlation = exchange_correlation.upper()
         shortcut_map = {
-            "PBE0": "HYB_GGA_XC_PBEH",
-            "B3LYP": "HYB_GGA_XC_B3LYP",
-            "HSE06": "HYB_GGA_XC_HSE06",
-            "M06": "HYB_MGGA_XC_M06",
-            "M05-2X": "HYB_MGGA_XC_M05_2X",
-            "LC-WPBE": "HYB_GGA_XC_LRC_WPBE",
+            "PBEXC": ["GGA_C_PBE", "GGA_X_PBE"],
+            "PBE0": ["HYB_GGA_XC_PBEH"],
+            "B3LYP": ["HYB_GGA_XC_B3LYP"],
+            "HSE06": ["HYB_GGA_XC_HSE06"],
+            "M06": ["HYB_MGGA_XC_M06"],
+            "M05-2X": ["HYB_MGGA_XC_M05_2X"],
+            "LC-WPBE": ["HYB_GGA_XC_LRC_WPBE"],
         }
         norm_xc = shortcut_map.get(exchange_correlation)
         if norm_xc:
-            xc_list.append(norm_xc)
+            xc_list.extend(norm_xc)
 
     # Handle the exchange part
     if exchange:
@@ -989,6 +1034,8 @@ def to_libxc_out(xc, hybridization):
         exchange = exchange.upper()
         exchange_map = {
             "PERDEW-BURKE-ERNZERHOF": "GGA_X_PBE",
+            "PERDEW-WANG GGA": "GGA_X_PW91",
+            "WU-COHEN GGA": "GGA_X_WC",
         }
         norm_x = exchange_map.get(exchange)
         if norm_x:
@@ -999,6 +1046,8 @@ def to_libxc_out(xc, hybridization):
         correlation = correlation.upper()
         correlation_map = {
             "PERDEW-BURKE-ERNZERHOF": "GGA_C_PBE",
+            "PERDEW-WANG GGA": "GGA_C_PW91",
+            "LEE-YANG-PARR": "GGA_C_LYP",
         }
         norm_c = correlation_map.get(correlation)
         if norm_c:
@@ -1006,13 +1055,23 @@ def to_libxc_out(xc, hybridization):
 
     # Shortcuts
     if norm_x == "GGA_X_PBE" and norm_c == "GGA_C_PBE" and hybridization == 25.00:
-        xc_list = ["HYB_GGA_XC_PBEH"]
+        section = section_XC_functionals()
+        section.XC_functional_name = "HYB_GGA_XC_PBEH"
+        section.XC_functional_weight = 1
+        return [section]
 
     # Go throught the XC list and add the sections and gather a summary
     functionals = []
+    if hybridization:
+        section = section_XC_functionals()
+        section.XC_functional_name = "HF_X"
+        section.XC_functional_weight = float(hybridization)/100
+        functionals.append(section)
     for xc in xc_list:
         section = section_XC_functionals()
         weight = 1.0
+        if hybridization and "_X_" in xc:
+            weight = 1.0 - float(hybridization)/100
         section.XC_functional_name = xc
         section.XC_functional_weight = weight
         functionals.append(section)
@@ -1024,4 +1083,5 @@ def to_libxc_name(functionals):
     """Given a list of section_XC_functionals, returns the single string that
     represents them all.
     """
-    return "+".join(sorted(["{}*{}".format(x.XC_functional_weight, x.XC_functional_name) for x in functionals]))
+    return "+".join("{}*{}".format(x.XC_functional_weight, x.XC_functional_name) for x in sorted(functionals, key=lambda x: x.XC_functional_name))
+    # return "+".join(sorted(["{}*{}".format(x.XC_functional_weight, x.XC_functional_name) for x in functionals]))

@@ -4,6 +4,42 @@ from crystalparser import CrystalParser
 from nomad.datamodel import EntryArchive
 
 
+def test_xc_functionals():
+    """Tests that different kinds of XC functionals are correctly identified.
+    """
+    # PBE
+    filepath = "./xc_functionals/pbe_1/supercell-00138.o"
+    archive = parse(filepath)
+    asserts_basic(archive)
+    asserts_basic_code_specific(archive)
+    method = archive.section_run[0].section_method[0]
+    assert method.XC_functional == "1.0*GGA_C_PBE+1.0*GGA_X_PBE"
+
+    # PW91 Hybrid
+    filepath = "./xc_functionals/pw91_hybrid/f075_l3_ph.o"
+    archive = parse(filepath)
+    asserts_basic(archive)
+    asserts_basic_code_specific(archive)
+    method = archive.section_run[0].section_method[0]
+    assert method.XC_functional == "1.0*GGA_C_PW91+0.9*GGA_X_PW91+0.1*HF_X"
+
+    # WC1LYP
+    filepath = "./xc_functionals/wc1lyp/albite_freq_intens.out"
+    archive = parse(filepath)
+    asserts_basic(archive)
+    asserts_basic_code_specific(archive)
+    method = archive.section_run[0].section_method[0]
+    assert method.XC_functional == "1.0*GGA_C_LYP+0.84*GGA_X_WC+0.16*HF_X"
+
+    # PBE0
+    filepath = "./xc_functionals/pbe0/ZrS2_band_structure_dos.prop.o"
+    archive = parse(filepath)
+    asserts_basic(archive)
+    asserts_basic_code_specific(archive)
+    method = archive.section_run[0].section_method[0]
+    assert method.XC_functional == "1.0*HYB_GGA_XC_PBEH"
+
+
 def test_single_point_dft():
     """Tests that single point DFT calculations are parsed succesfully.
     """
@@ -107,8 +143,7 @@ def asserts_basic(archive, method_type="DFT", system_type="3D", vdw=None, forces
         assert system.atom_species is not None
         assert system.lattice_vectors is not None
         assert system.lattice_vectors.shape == (3, 3)
-        if system_type == "3D":
-            assert system.configuration_periodic_dimensions == [True, True, True]
+        assert system.configuration_periodic_dimensions == [True, True, True]
         assert system.atom_positions.shape[0] == n_atoms
         assert system.atom_species.shape[0] == n_atoms
 
@@ -231,3 +266,4 @@ if __name__ == "__main__":
     test_band_structure()
     test_band_structure_missing()
     test_dos()
+    test_xc_functionals()

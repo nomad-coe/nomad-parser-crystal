@@ -176,14 +176,6 @@ class section_run(public.section_run):
         ''',
         a_legacy=LegacyDefinition(name='x_crystal_process_user'))
 
-    x_crystal_version_date = Quantity(
-        type=str,
-        shape=[],
-        description='''
-        Date of the Crystal version.
-        ''',
-        a_legacy=LegacyDefinition(name='x_crystal_header_date'))
-
     x_crystal_distribution = Quantity(
         type=str,
         shape=[],
