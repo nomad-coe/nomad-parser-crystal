@@ -31,7 +31,7 @@ integer = r'-?\d+'                                # Integer number
 integer_c = capture(integer)                      # Captures integer number
 word = r'[a-zA-Z]+'                               # A single alphanumeric word
 word_c = capture(word)                            # Captures a single alphanumeric word
-br = r'\r?\n'                                     # Newline that works for both Windows and Unix
+br = r'\r?\n'                                     # Newline that works for both Windows and Unix. Crystal can be run on a Windows machine as well.
 
 
 class CrystalParser(FairdiParser):
@@ -129,6 +129,7 @@ class CrystalParser(FairdiParser):
                 Quantity('sorting_of_energy_points', fr'SORTING OF ENERGY POINTS\:\s+{word_c}', repeats=False),
 
                 # System
+                Quantity("molecular_calculation", fr' (MOLECULAR CALCULATION){br}', str_operation=lambda x: x, repeats=False),
                 Quantity("crystal_family", fr' CRYSTAL FAMILY\s*:\s*([\s\S]+?)\s*{br}', str_operation=lambda x: x, repeats=False),
                 Quantity("crystal_class", fr' CRYSTAL CLASS  \(GROTH - 1921\)\s*:\s*([\s\S]+?)\s*{br}', str_operation=lambda x: x, repeats=False),
                 Quantity("space_group", fr' SPACE GROUP \(CENTROSYMMETRIC\)\s*:\s*([\s\S]+?)\s*{br}', str_operation=lambda x: x, repeats=False),
@@ -140,6 +141,16 @@ class CrystalParser(FairdiParser):
                     fr'{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}',
                     shape=(6),
                     dtype=np.float64,
+                    repeats=False,
+                ),
+                Quantity(
+                    "labels_positions_molecule",
+                    fr' ATOMS IN THE ASYMMETRIC UNIT\s+{integer} - ATOMS IN THE UNIT CELL:\s+{integer}{br}' +
+                    fr'     ATOM          X\(ANGSTROM\)         Y\(ANGSTROM\)         Z\(ANGSTROM\){br}' +
+                    re.escape(' *******************************************************************************') +
+                    fr'((?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}{br})+)',
+                    shape=(-1, 7),
+                    dtype=str,
                     repeats=False,
                 ),
                 Quantity(
@@ -172,16 +183,6 @@ class CrystalParser(FairdiParser):
                     dtype=str,
                     repeats=False,
                 ),
-                # Quantity(
-                    # 'lattice_parameters_external',
-                    # fr' LATTICE PARAMETERS \(ANGSTROMS AND DEGREES\) - BOHR = {flt} ANGSTROM{br}' +
-                    # fr' PRIMITIVE CELL - CENTRING CODE\s*[\s\S]*?\s*VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3{br}' +
-                    # fr'         A              B              C           ALPHA      BETA       GAMMA\s*' +
-                    # fr'{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}',
-                    # shape=(6),
-                    # dtype=np.float64,
-                    # repeats=False,
-                # ),
                 Quantity(
                     'lattice_vectors_restart',
                     fr' DIRECT LATTICE VECTOR COMPONENTS \(ANGSTROM\){br}' +
@@ -328,7 +329,7 @@ class CrystalParser(FairdiParser):
                     sub_parser=UnstructuredTextFileParser(quantities=[
                         Quantity(
                             'geo_opt_step',
-                            fr' COORDINATE AND CELL OPTIMIZATION - POINT\s+{integer}{br}' +
+                            fr' (?:COORDINATE AND CELL OPTIMIZATION|COORDINATE OPTIMIZATION) - POINT\s+{integer}{br}' +
                             fr'([\s\S]*?)' +
                             fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT OPTI',
                             sub_parser=UnstructuredTextFileParser(quantities=[
@@ -567,38 +568,38 @@ class CrystalParser(FairdiParser):
         run.time_run_date_start = to_unix_time(out["start_timestamp"])
         run.time_run_date_end = to_unix_time(out["end_timestamp"])
 
-        # System. Normally read from lattice parameters and scaled positions,
-        # for restarts reads the cell and positions in cartesian coordinates.
+        # System. There are several alternative sources for this information
+        # depending on the run type.
         system = run.m_create(section_system)
+        molecular = out["molecular_calculation"] == "MOLECULAR CALCULATION"
         lattice_parameters_supercell = out["lattice_parameters_supercell"]
         lattice_parameters = out["lattice_parameters"]
-        # lattice_parameters_external = out["lattice_parameters_external"]
         lattice_vectors_restart = out["lattice_vectors_restart"]
-        if lattice_parameters_supercell is not None:
-            lattice_vectors = atomutils.cellpar_to_cell(lattice_parameters_supercell, degrees=True)
-            labels_positions = out["labels_positions_supercell"]
-            atomic_numbers = labels_positions[:, 1].astype(np.int)
-            cart_pos = labels_positions[:, 2:5].astype(np.float64)
-        elif lattice_parameters is not None:
-            labels_positions = out["labels_positions"]
-            lattice_vectors = atomutils.cellpar_to_cell(lattice_parameters, degrees=True)
+        pbc = np.array([True, True, True])
+        if molecular:
+            labels_positions = out["labels_positions_molecule"]
             atomic_numbers = labels_positions[:, 2].astype(np.int)
-            scaled_pos = labels_positions[:, 4:7].astype(np.float64)
-            cart_pos, lattice_vectors = to_system(lattice_parameters, scaled_pos)
-        elif lattice_vectors_restart is not None:
-            lattice_vectors = lattice_vectors_restart * ureg.angstrom
-            labels_positions = out["labels_positions_restart"]
-            atomic_numbers = labels_positions[:, 1].astype(np.int)
-            cart_pos = labels_positions[:, 4:7].astype(np.float64) * ureg.angstrom
-        # elif lattice_parameters_external is not None:
-            # lattice_vectors = atomutils.cellpar_to_cell(lattice_parameters_external, degrees=True)
-            # print(lattice_vectors)
-            # labels_positions = out["labels_positions"]
-            # print(labels_positions)
-            # atomic_numbers = labels_positions[:, 1].astype(np.int)
-            # cart_pos = labels_positions[:, 2:5].astype(np.float64)
+            cart_pos = labels_positions[:, 4:7].astype(np.float64)
+        else:
+            if lattice_parameters_supercell is not None:
+                lattice_vectors = atomutils.cellpar_to_cell(lattice_parameters_supercell, degrees=True)
+                labels_positions = out["labels_positions_supercell"]
+                atomic_numbers = labels_positions[:, 1].astype(np.int)
+                cart_pos = labels_positions[:, 2:5].astype(np.float64)
+            elif lattice_parameters is not None:
+                labels_positions = out["labels_positions"]
+                lattice_vectors = atomutils.cellpar_to_cell(lattice_parameters, degrees=True)
+                atomic_numbers = labels_positions[:, 2].astype(np.int)
+                scaled_pos = labels_positions[:, 4:7].astype(np.float64)
+                cart_pos, lattice_vectors = to_system(lattice_parameters, scaled_pos)
+            elif lattice_vectors_restart is not None:
+                lattice_vectors = lattice_vectors_restart * ureg.angstrom
+                labels_positions = out["labels_positions_restart"]
+                atomic_numbers = labels_positions[:, 1].astype(np.int)
+                cart_pos = labels_positions[:, 4:7].astype(np.float64) * ureg.angstrom
+            system.lattice_vectors = lattice_vectors
+            system.configuration_periodic_dimensions = pbc
 
-        system.lattice_vectors = lattice_vectors
         system.atom_positions = cart_pos
         system.atom_species = atomic_numbers
         dimensionality = out["dimensionality"]
@@ -616,9 +617,6 @@ class CrystalParser(FairdiParser):
         space_group = out["space_group"]
         if space_group is not None:
             system.x_crystal_space_group = space_group
-        pbc = np.array([False, False, False])
-        pbc[0:dimensionality] = True
-        system.configuration_periodic_dimensions = [True, True, True]
 
         # Method
         method = run.m_create(section_method)
@@ -681,17 +679,18 @@ class CrystalParser(FairdiParser):
         method.x_crystal_pole_order = out["pole_order"]
         method.x_crystal_type_of_calculation = out["calculation_type"]
         cappa = out["cappa"]
-        method.x_crystal_is1 = cappa[0]
-        method.x_crystal_is2 = cappa[1]
-        method.x_crystal_is3 = cappa[2]
-        method.x_crystal_k_pts_monk_net = cappa[3]
-        method.x_crystal_symmops_k = cappa[4]
-        method.x_crystal_symmops_g = cappa[5]
+        if cappa is not None:
+            method.x_crystal_is1 = cappa[0]
+            method.x_crystal_is2 = cappa[1]
+            method.x_crystal_is3 = cappa[2]
+            method.x_crystal_k_pts_monk_net = cappa[3]
+            method.x_crystal_symmops_k = cappa[4]
+            method.x_crystal_symmops_g = cappa[5]
         method.x_crystal_weight_f = out["weight_f"]
         method.x_crystal_shrink = out["shrink"]
-        method.x_crystal_shrink_gilat = out["shrink_gilat"]
+        if out["shrink_gilat"] is not None: method.x_crystal_shrink_gilat = out["shrink_gilat"]
         method.x_crystal_convergence_deltap = out["convergenge_deltap"]
-        method.x_crystal_n_k_points_ibz = out["n_k_points_ibz"]
+        if out["n_k_points_ibz"] is not None: method.x_crystal_n_k_points_ibz = out["n_k_points_ibz"]
         if out["n_k_points_gilat"] is not None: method.x_crystal_n_k_points_gilat = out["n_k_points_gilat"]
         basis_set = out["basis_set"]
         covered_species = set()
@@ -1084,4 +1083,3 @@ def to_libxc_name(functionals):
     represents them all.
     """
     return "+".join("{}*{}".format(x.XC_functional_weight, x.XC_functional_name) for x in sorted(functionals, key=lambda x: x.XC_functional_name))
-    # return "+".join(sorted(["{}*{}".format(x.XC_functional_weight, x.XC_functional_name) for x in functionals]))

@@ -40,6 +40,16 @@ def test_xc_functionals():
     assert method.XC_functional == "1.0*HYB_GGA_XC_PBEH"
 
 
+def test_molecule():
+    """Tests that molecular calculations are parsed correctly.
+    """
+    filepath = "./molecule/w.out"
+    archive = parse(filepath)
+    asserts_basic(archive, system_type="0D")
+    asserts_basic_code_specific(archive, system_type="0D")
+    method = archive.section_run[0].section_method[0]
+    assert method.XC_functional == "1.0*HYB_GGA_XC_PBEH"
+
 def test_single_point_dft():
     """Tests that single point DFT calculations are parsed succesfully.
     """
@@ -141,9 +151,10 @@ def asserts_basic(archive, method_type="DFT", system_type="3D", vdw=None, forces
     for system in systems:
         assert system.atom_positions is not None
         assert system.atom_species is not None
-        assert system.lattice_vectors is not None
-        assert system.lattice_vectors.shape == (3, 3)
-        assert system.configuration_periodic_dimensions == [True, True, True]
+        if system_type != "0D":
+            assert system.lattice_vectors is not None
+            assert system.lattice_vectors.shape == (3, 3)
+            assert system.configuration_periodic_dimensions == [True, True, True]
         assert system.atom_positions.shape[0] == n_atoms
         assert system.atom_species.shape[0] == n_atoms
 
@@ -191,17 +202,18 @@ def asserts_basic_code_specific(archive, method_type="DFT", system_type="3D", vd
     assert method.x_crystal_tol_pseudo_overlap_p is not None
     assert method.x_crystal_pole_order is not None
     assert method.x_crystal_type_of_calculation is not None
-    assert method.x_crystal_is1 is not None
-    assert method.x_crystal_is2 is not None
-    assert method.x_crystal_is3 is not None
-    assert method.x_crystal_k_pts_monk_net is not None
-    assert method.x_crystal_symmops_k is not None
-    assert method.x_crystal_symmops_g is not None
+    if system_type != "0D":
+        assert method.x_crystal_is1 is not None
+        assert method.x_crystal_is2 is not None
+        assert method.x_crystal_is3 is not None
+        assert method.x_crystal_k_pts_monk_net is not None
+        assert method.x_crystal_symmops_k is not None
+        assert method.x_crystal_symmops_g is not None
+        assert method.x_crystal_shrink_gilat is not None
+        assert method.x_crystal_n_k_points_ibz is not None
     assert method.x_crystal_convergence_deltap is not None
     assert method.x_crystal_shrink is not None
-    assert method.x_crystal_shrink_gilat is not None
     assert method.x_crystal_weight_f is not None
-    assert method.x_crystal_n_k_points_ibz is not None
     if method_type == "DFT":
         assert method.x_crystal_toldee is not None
 
@@ -267,3 +279,4 @@ if __name__ == "__main__":
     test_band_structure_missing()
     test_dos()
     test_xc_functionals()
+    test_molecule()
