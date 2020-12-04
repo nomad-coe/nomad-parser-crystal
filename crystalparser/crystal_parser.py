@@ -156,7 +156,7 @@ class CrystalParser(FairdiParser):
                 Quantity(
                     "labels_positions",
                     fr' ATOMS IN THE ASYMMETRIC UNIT\s+{integer} - ATOMS IN THE UNIT CELL:\s+{integer}{br}' +
-                    fr'     ATOM              X/A                 Y/B                 Z/C\s*{br}' +
+                    fr'\s+ATOM\s+X/A\s+Y/B\s+Z/C\s*{br}' +
                     re.escape(' *******************************************************************************') +
                     fr'((?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}{br})+)',
                     shape=(-1, 7),
@@ -254,10 +254,10 @@ class CrystalParser(FairdiParser):
                     ]),
                     repeats=False,
                 ),
-                Quantity("fock_ks_matrix_mixing", fr' INFORMATION \*+.*?\*+.*?\:\s+FOCK/KS MATRIX MIXING SET TO\s+' + integer_c + r'\s+\%{br}*', repeats=False),
-                Quantity("coulomb_bipolar_buffer", fr' INFORMATION \*+.*?\*+.*?\:\s+COULOMB BIPOLAR BUFFER SET TO\s+' + flt_c + r' Mb{br}*', repeats=False),
-                Quantity("exchange_bipolar_buffer", fr' INFORMATION \*+.*?\*+.*?\:\s+EXCHANGE BIPOLAR BUFFER SET TO\s+' + flt_c + r' Mb{br}*', repeats=False),
-                Quantity("toldee", fr' INFORMATION \*+ TOLDEE \*+\s*\*+ SCF TOL ON TOTAL ENERGY SET TO\s+' + flt_c + r'{br}', repeats=False),
+                Quantity("fock_ks_matrix_mixing", fr' INFORMATION \*+.*?\*+.*?\:\s+FOCK/KS MATRIX MIXING SET TO\s+{integer_c}\s+\%{br}', repeats=False),
+                Quantity("coulomb_bipolar_buffer", fr' INFORMATION \*+.*?\*+.*?\:\s+COULOMB BIPOLAR BUFFER SET TO\s+{flt_c} Mb{br}', repeats=False),
+                Quantity("exchange_bipolar_buffer", fr' INFORMATION \*+.*?\*+.*?\:\s+EXCHANGE BIPOLAR BUFFER SET TO\s+{flt_c} Mb{br}', repeats=False),
+                Quantity("toldee", fr' INFORMATION \*+ TOLDEE \*+\s*\*+ SCF TOL ON TOTAL ENERGY SET TO\s+{flt_c}{br}', repeats=False),
                 Quantity("n_atoms_per_cell", r' N\. OF ATOMS PER CELL\s+' + integer_c, repeats=False),
                 Quantity("n_shells", r' NUMBER OF SHELLS\s+' + integer_c, repeats=False),
                 Quantity("n_ao", r' NUMBER OF AO\s+' + integer_c, repeats=False),
@@ -288,7 +288,7 @@ class CrystalParser(FairdiParser):
                     sub_parser=UnstructuredTextFileParser(quantities=[
                         Quantity(
                             'scf_iterations',
-                            r'( CHARGE NORMALIZATION FACTOR[\s\S]*? (?:TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT PDIG|== SCF ENDED))',
+                            r'( CHARGE NORMALIZATION FACTOR[\s\S]*? (?:TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT PDIG|TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT MPP_KSPA|== SCF ENDED))',
                             sub_parser=UnstructuredTextFileParser(quantities=[
                                 Quantity('charge_normalization_factor', fr' CHARGE NORMALIZATION FACTOR{ws}{flt}{br}', repeats=False),
                                 Quantity('total_atomic_charges', fr' TOTAL ATOMIC CHARGES:{br}(?:{ws}{flt})+{br}', repeats=False),
@@ -310,10 +310,10 @@ class CrystalParser(FairdiParser):
                     ]),
                     repeats=False,
                 ),
-                Quantity('number_of_scf_iterations', r' == SCF ENDED - CONVERGENCE ON ENERGY      E\(AU\)' + ws + flt + ws + r'CYCLES' + ws + integer_c, repeats=False),
+                Quantity('number_of_scf_iterations', fr' == SCF ENDED - CONVERGENCE ON (?:ENERGY|TESTER)\s+E\(AU\)\s*{flt}\s*CYCLES\s+{integer_c}', repeats=False),
                 Quantity(
                     'energy_total',
-                    r' TOTAL ENERGY\(DFT|HF\)\(AU\)\(' + ws + integer + r'\)' + ws + flt_c + ws + 'DE' + flt + ws + 'tester|tst' + ws + flt,
+                    fr' TOTAL ENERGY\((?:DFT|HF)\)\(AU\)\(\s*{integer}\)\s*{flt_c} DE\s*{flt} (?:tester|tst)\s*{flt}',
                     unit=ureg.hartree,
                     repeats=False,
                 ),
@@ -672,37 +672,66 @@ class CrystalParser(FairdiParser):
                         method.m_add_sub_section(section_method.section_XC_functionals, xc)
                     method.XC_functional = to_libxc_name(functionals)
 
-        method.x_crystal_fock_ks_matrix_mixing = out["fock_ks_matrix_mixing"]
-        method.x_crystal_coulomb_bipolar_buffer = out["coulomb_bipolar_buffer"]
-        method.x_crystal_exchange_bipolar_buffer = out["exchange_bipolar_buffer"]
-        method.x_crystal_toldee = out["toldee"]
-        method.x_crystal_n_atoms = out["n_atoms_per_cell"]
-        method.x_crystal_n_shells = out["n_shells"]
-        method.x_crystal_n_orbitals = out["n_ao"]
-        method.x_crystal_n_electrons = out["n_electrons"]
-        method.x_crystal_n_core_electrons = out["n_core_electrons"]
-        method.x_crystal_n_symmops = out["n_symmops"]
-        method.x_crystal_tol_coulomb_overlap = out["tol_coulomb_overlap"]
-        method.x_crystal_tol_coulomb_penetration = out["tol_coulomb_penetration"]
-        method.x_crystal_tol_exchange_overlap = out["tol_exchange_overlap"]
-        method.x_crystal_tol_pseudo_overlap_f = out["tol_pseudo_overlap_f"]
-        method.x_crystal_tol_pseudo_overlap_p = out["tol_pseudo_overlap_p"]
-        method.x_crystal_pole_order = out["pole_order"]
-        method.x_crystal_type_of_calculation = out["calculation_type"]
+        if out["fock_ks_matrix_mixing"] is not None:
+            method.x_crystal_fock_ks_matrix_mixing = out["fock_ks_matrix_mixing"]
+        if out["coulomb_bipolar_buffer"] is not None:
+            method.x_crystal_coulomb_bipolar_buffer = out["coulomb_bipolar_buffer"]
+        if out["exchange_bipolar_buffer"] is not None:
+            method.x_crystal_exchange_bipolar_buffer = out["exchange_bipolar_buffer"]
+        if out["toldee"] is not None:
+            method.x_crystal_toldee = out["toldee"]
+        if out["n_atoms_per_cell"] is not None:
+            method.x_crystal_n_atoms = out["n_atoms_per_cell"]
+        if out["n_shells"] is not None:
+            method.x_crystal_n_shells = out["n_shells"]
+        if out["n_ao"] is not None:
+            method.x_crystal_n_orbitals = out["n_ao"]
+        if out["n_electrons"] is not None:
+            method.x_crystal_n_electrons = out["n_electrons"]
+        if out["n_core_electrons"] is not None:
+            method.x_crystal_n_core_electrons = out["n_core_electrons"]
+        if out["n_symmops"] is not None:
+            method.x_crystal_n_symmops = out["n_symmops"]
+        if out["tol_coulomb_overlap"] is not None:
+            method.x_crystal_tol_coulomb_overlap = out["tol_coulomb_overlap"]
+        if out["tol_coulomb_penetration"] is not None:
+            method.x_crystal_tol_coulomb_penetration = out["tol_coulomb_penetration"]
+        if out["tol_exchange_overlap"] is not None:
+            method.x_crystal_tol_exchange_overlap = out["tol_exchange_overlap"]
+        if out["tol_pseudo_overlap_f"] is not None:
+            method.x_crystal_tol_pseudo_overlap_f = out["tol_pseudo_overlap_f"]
+        if out["tol_pseudo_overlap_p"] is not None:
+            method.x_crystal_tol_pseudo_overlap_p = out["tol_pseudo_overlap_p"]
+        if out["pole_order"] is not None:
+            method.x_crystal_pole_order = out["pole_order"]
+        if out["calculation_type"] is not None:
+            method.x_crystal_type_of_calculation = out["calculation_type"]
         cappa = out["cappa"]
         if cappa is not None:
-            method.x_crystal_is1 = cappa[0]
-            method.x_crystal_is2 = cappa[1]
-            method.x_crystal_is3 = cappa[2]
-            method.x_crystal_k_pts_monk_net = cappa[3]
-            method.x_crystal_symmops_k = cappa[4]
-            method.x_crystal_symmops_g = cappa[5]
-        method.x_crystal_weight_f = out["weight_f"]
-        method.x_crystal_shrink = out["shrink"]
-        if out["shrink_gilat"] is not None: method.x_crystal_shrink_gilat = out["shrink_gilat"]
-        method.x_crystal_convergence_deltap = out["convergenge_deltap"]
-        if out["n_k_points_ibz"] is not None: method.x_crystal_n_k_points_ibz = out["n_k_points_ibz"]
-        if out["n_k_points_gilat"] is not None: method.x_crystal_n_k_points_gilat = out["n_k_points_gilat"]
+            if cappa[0] is not None:
+                method.x_crystal_is1 = cappa[0]
+            if cappa[1] is not None:
+                method.x_crystal_is2 = cappa[1]
+            if cappa[2] is not None:
+                method.x_crystal_is3 = cappa[2]
+            if cappa[3] is not None:
+                method.x_crystal_k_pts_monk_net = cappa[3]
+            if cappa[4] is not None:
+                method.x_crystal_symmops_k = cappa[4]
+            if cappa[5] is not None:
+                method.x_crystal_symmops_g = cappa[5]
+        if out["weight_f"] is not None:
+            method.x_crystal_weight_f = out["weight_f"]
+        if out["shrink"] is not None:
+            method.x_crystal_shrink = out["shrink"]
+        if out["shrink_gilat"] is not None:
+            method.x_crystal_shrink_gilat = out["shrink_gilat"]
+        if out["convergenge_deltap"] is not None:
+            method.x_crystal_convergence_deltap = out["convergenge_deltap"]
+        if out["n_k_points_ibz"] is not None:
+            method.x_crystal_n_k_points_ibz = out["n_k_points_ibz"]
+        if out["n_k_points_gilat"] is not None:
+            method.x_crystal_n_k_points_gilat = out["n_k_points_gilat"]
         basis_set = out["basis_set"]
         covered_species = set()
         if basis_set is not None:
@@ -727,7 +756,6 @@ class CrystalParser(FairdiParser):
         if scf_block is not None:
             number_of_scf_iterations = out["number_of_scf_iterations"]
             scc.single_configuration_calculation_converged = number_of_scf_iterations is not None
-            scc.number_of_scf_iterations = number_of_scf_iterations
             for scf in scf_block["scf_iterations"]:
                 energies = scf["energies"]
                 section_scf = section_scf_iteration()
@@ -749,8 +777,14 @@ class CrystalParser(FairdiParser):
                 if virial_coefficient is not None:
                     section_scf.x_crystal_scf_virial_coefficient = virial_coefficient
                 scc.m_add_sub_section(section_single_configuration_calculation.section_scf_iteration, section_scf)
+            scc.number_of_scf_iterations = len(scc.section_scf_iteration)
 
-        scc.energy_total = out["energy_total"]
+        if out["energy_total"] is not None:
+            # If the final energy is found, replace the final SCF step energy
+            # with it, as it is more accurate.
+            if scc.section_scf_iteration:
+                scc.section_scf_iteration[-1].energy_total_scf_iteration = out["energy_total"]
+            scc.energy_total = out["energy_total"]
         forces = out["forces"]
         if forces is not None:
             scc.atom_forces = forces[:, 2:].astype(float) * ureg.hartree/ureg.bohr
@@ -856,7 +890,8 @@ class CrystalParser(FairdiParser):
                 # was printed before entering the geometry optimization loop.
                 i_system = system
                 i_energy = steps[0]["energy"]
-                scc.energy_total = i_energy
+                if i_energy is not None:
+                    scc.energy_total = i_energy
 
                 frames = []
                 for step in steps[1:]:
@@ -878,7 +913,8 @@ class CrystalParser(FairdiParser):
 
                     i_system.atom_species = i_atomic_numbers
                     i_system.atom_positions = i_cart_pos
-                    i_scc.energy_total = i_energy
+                    if i_energy is not None:
+                        i_scc.energy_total = i_energy
 
                     i_scc.single_configuration_calculation_to_system_ref = i_system
                     i_scc.single_configuration_to_calculation_method_ref = method

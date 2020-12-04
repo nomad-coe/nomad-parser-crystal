@@ -83,7 +83,7 @@ def test_geo_opt():
     filepath = "./geo_opt/nio_tzvp_pbe0_opt.o"
     archive = parse(filepath)
     asserts_basic(archive)
-    asserts_basic_code_specific(archive)
+    asserts_basic_code_specific(archive, run_type="geo_opt")
     asserts_geo_opt(archive)
 
 
@@ -93,7 +93,7 @@ def test_band_structure():
     filepath = "./band_structure/nacl_hf/NaCl.out"
     archive = parse(filepath)
     asserts_basic(archive, method_type="HF")
-    asserts_basic_code_specific(archive, method_type="HF")
+    asserts_basic_code_specific(archive, method_type="HF", run_type="band_structure")
     asserts_band_structure(archive)
     run = archive.section_run[0]
     method = run.section_method[0]
@@ -108,7 +108,7 @@ def test_band_structure_missing():
     filepath = "./band_structure/tis2_dft/TiS2_band_structure.prop.o"
     archive = parse(filepath)
     asserts_basic(archive)
-    asserts_basic_code_specific(archive)
+    asserts_basic_code_specific(archive, run_type="band_structure")
     run = archive.section_run[0]
     method = run.section_method[0]
     assert method.XC_functional == "1.0*HYB_GGA_XC_PBEH"
@@ -120,7 +120,7 @@ def test_dos():
     filepath = "./dos/nacl_hf/NaCl.out"
     archive = parse(filepath)
     asserts_basic(archive)
-    asserts_basic_code_specific(archive)
+    asserts_basic_code_specific(archive, run_type="dos")
     asserts_dos(archive)
 
 
@@ -176,7 +176,7 @@ def asserts_basic(archive, method_type="DFT", system_type="3D", vdw=None, forces
             assert scc.atom_forces.shape[0] == n_atoms
 
 
-def asserts_basic_code_specific(archive, method_type="DFT", system_type="3D", vdw=None, forces=False):
+def asserts_basic_code_specific(archive, method_type="DFT", system_type="3D", run_type="scf", vdw=None, forces=False):
     run = archive.section_run[0]
     systems = run.section_system
     method = run.section_method[0]
@@ -186,9 +186,6 @@ def asserts_basic_code_specific(archive, method_type="DFT", system_type="3D", vd
     assert run.program_name == "Crystal"
     assert run.program_basis_set_type == "gaussians"
 
-    assert method.x_crystal_fock_ks_matrix_mixing is not None
-    assert method.x_crystal_coulomb_bipolar_buffer is not None
-    assert method.x_crystal_exchange_bipolar_buffer is not None
     assert method.x_crystal_n_atoms is not None
     assert method.x_crystal_n_shells is not None
     assert method.x_crystal_n_orbitals is not None
@@ -211,11 +208,8 @@ def asserts_basic_code_specific(archive, method_type="DFT", system_type="3D", vd
         assert method.x_crystal_symmops_g is not None
         assert method.x_crystal_shrink_gilat is not None
         assert method.x_crystal_n_k_points_ibz is not None
-    assert method.x_crystal_convergence_deltap is not None
-    assert method.x_crystal_shrink is not None
+        assert method.x_crystal_shrink is not None
     assert method.x_crystal_weight_f is not None
-    if method_type == "DFT":
-        assert method.x_crystal_toldee is not None
 
     bases = run.section_basis_set_atom_centered
     for basis in bases:
