@@ -18,7 +18,7 @@ def test_misc():
 
     # Tests that ghost atoms are ignored in the system. Maybe they need their
     # own metainfo?
-    filepath = "./misc/ghosts/model2b_s2.cryst.out"
+    filepath = "./misc/ghosts/fevo46_sngt_ti_zero.cryst.out"
     archive = parse(filepath)
     asserts_basic(archive)
     asserts_basic_code_specific(archive)
