@@ -4,6 +4,28 @@ from crystalparser import CrystalParser
 from nomad.datamodel import EntryArchive
 
 
+def test_misc():
+    """Generic tests for exceptional cases that the parser needs to take into
+    consideration.
+    """
+    # The atomic number is given in the NAT convention
+    filepath = "./misc/nat/HfS2_PBE0D3_ZD_fc3_supercell-00497.o"
+    archive = parse(filepath)
+    asserts_basic(archive)
+    asserts_basic_code_specific(archive)
+    system = archive.section_run[0].section_system[0]
+    assert set(system.atom_species) == set((16, 72))
+
+    # Tests that ghost atoms are ignored in the system. Maybe they need their
+    # own metainfo?
+    filepath = "./misc/ghosts/model2b_s2.cryst.out"
+    archive = parse(filepath)
+    asserts_basic(archive)
+    asserts_basic_code_specific(archive)
+    system = archive.section_run[0].section_system[0]
+    assert set(system.atom_species) == set((8, 26, 22, 38))
+
+
 def test_xc_functionals():
     """Tests that different kinds of XC functionals are correctly identified.
     """
@@ -151,12 +173,14 @@ def asserts_basic(archive, method_type="DFT", system_type="3D", vdw=None, forces
     for system in systems:
         assert system.atom_positions is not None
         assert system.atom_species is not None
+        assert system.atom_labels is not None
         if system_type != "0D":
             assert system.lattice_vectors is not None
             assert system.lattice_vectors.shape == (3, 3)
             assert system.configuration_periodic_dimensions == [True, True, True]
         assert system.atom_positions.shape[0] == n_atoms
         assert system.atom_species.shape[0] == n_atoms
+        assert len(system.atom_labels) == n_atoms
 
     assert method.scf_max_iteration is not None
     assert method.scf_threshold_energy_change is not None
@@ -274,3 +298,4 @@ if __name__ == "__main__":
     test_dos()
     test_xc_functionals()
     test_molecule()
+    test_misc()

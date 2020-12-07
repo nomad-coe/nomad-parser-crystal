@@ -272,7 +272,7 @@ class CrystalParser(FairdiParser):
                 Quantity("pole_order", r' POLE ORDER IN MONO ZONE\s+' + integer_c, repeats=False),
                 Quantity("calculation_type", fr' TYPE OF CALCULATION \:\s+(.*?{br}\s+.*?){br}', str_operation=lambda x: " ".join(x.split()), repeats=False),
                 Quantity('xc_functional', fr' \(EXCHANGE\)\[CORRELATION\] FUNCTIONAL:(\(.+\)\[.+\]){br}', str_operation=lambda x: x, repeats=False,),
-                Quantity("cappa", r'CAPPA:IS1\s+' + integer_c + r';IS2\s+' + integer_c + r';IS3\s+' + integer_c + '; K PTS MONK NET\s+' + integer_c + r'; SYMMOPS:K SPACE\s+' + integer_c + ';G SPACE\s+' + integer_c, repeats=False),
+                Quantity("cappa", fr'CAPPA:IS1\s+{integer_c};IS2\s+{integer_c};IS3\s+{integer_c}; K PTS MONK NET\s+{integer_c}; SYMMOPS:\s*K SPACE\s+{integer_c};G SPACE\s+{integer_c}', repeats=False),
                 Quantity('scf_max_iteration', r' MAX NUMBER OF SCF CYCLES\s+' + integer_c, repeats=False),
                 Quantity('convergenge_deltap', r'CONVERGENCE ON DELTAP\s+' + flt_crystal_c, str_operation=to_float, repeats=False), Quantity('weight_f', r'WEIGHT OF F\(I\) IN F\(I\+1\)\s+' + integer_c, repeats=False),
                 Quantity('scf_threshold_energy_change', r'CONVERGENCE ON ENERGY\s+' + flt_crystal_c, str_operation=to_float, repeats=False, unit=ureg.hartree),
@@ -346,7 +346,7 @@ class CrystalParser(FairdiParser):
                                 Quantity(
                                     "labels_positions_scaled",
                                     fr' ATOMS IN THE ASYMMETRIC UNIT\s+{integer} - ATOMS IN THE UNIT CELL:\s+{integer}{br}' +
-                                    fr'     ATOM              X/A                 Y/B                 Z/C\s*{br}' +
+                                    fr'\s+ATOM\s+X/A\s+Y/B\s+Z/C\s*{br}' +
                                     re.escape(' *******************************************************************************') +
                                     fr'((?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}{br})+)',
                                     shape=(-1, 7),
@@ -589,30 +589,35 @@ class CrystalParser(FairdiParser):
         pbc = np.array([True, True, True])
         if molecular:
             labels_positions = out["labels_positions_molecule"]
-            atomic_numbers = labels_positions[:, 2].astype(np.int)
+            atomic_numbers = std_atomic_number(labels_positions[:, 2].astype(np.int))
+            atom_labels = standardize_label(labels_positions[:, 3])
             cart_pos = labels_positions[:, 4:7].astype(np.float64)
         else:
             if lattice_parameters_supercell is not None:
                 lattice_vectors = atomutils.cellpar_to_cell(lattice_parameters_supercell, degrees=True)
                 labels_positions = out["labels_positions_supercell"]
-                atomic_numbers = labels_positions[:, 1].astype(np.int)
+                atomic_numbers = std_atomic_number(labels_positions[:, 1].astype(np.int))
+                atom_labels = standardize_label(labels_positions[:, 2])
                 cart_pos = labels_positions[:, 2:5].astype(np.float64)
             elif lattice_parameters is not None:
                 labels_positions = out["labels_positions"]
                 lattice_vectors = atomutils.cellpar_to_cell(lattice_parameters, degrees=True)
-                atomic_numbers = labels_positions[:, 2].astype(np.int)
+                atomic_numbers = std_atomic_number(labels_positions[:, 2].astype(np.int))
+                atom_labels = standardize_label(labels_positions[:, 3])
                 scaled_pos = labels_positions[:, 4:7].astype(np.float64)
                 cart_pos, lattice_vectors = to_system(lattice_parameters, scaled_pos)
             elif lattice_vectors_restart is not None:
                 lattice_vectors = lattice_vectors_restart * ureg.angstrom
                 labels_positions = out["labels_positions_restart"]
-                atomic_numbers = labels_positions[:, 1].astype(np.int)
+                atomic_numbers = std_atomic_number(labels_positions[:, 1].astype(np.int))
+                atom_labels = standardize_label(labels_positions[:, 2])
                 cart_pos = labels_positions[:, 4:7].astype(np.float64) * ureg.angstrom
             system.lattice_vectors = lattice_vectors
             system.configuration_periodic_dimensions = pbc
 
         system.atom_positions = cart_pos
         system.atom_species = atomic_numbers
+        system.atom_labels = atom_labels
         dimensionality = out["dimensionality"]
         if dimensionality is not None:
             system.x_crystal_dimensionality = dimensionality
@@ -736,7 +741,7 @@ class CrystalParser(FairdiParser):
         covered_species = set()
         if basis_set is not None:
             for bs in basis_set["basis_sets"]:
-                atomic_number = to_atomic_number(bs["species"][1])
+                atomic_number = label_to_atomic_number(bs["species"][1])
                 shells = bs["shells"]
                 if atomic_number != covered_species and shells is not None:
                     section_basis_set = section_basis_set_atom_centered()
@@ -900,18 +905,21 @@ class CrystalParser(FairdiParser):
                     i_energy = step["energy"]
                     if molecular:
                         i_labels_positions = step["labels_positions_cartesian"]
-                        i_atomic_numbers = i_labels_positions[:, 2].astype(np.int)
+                        i_atomic_numbers = std_atomic_number(i_labels_positions[:, 2].astype(np.int))
+                        i_atom_labels = standardize_label(i_labels_positions[:, 3])
                         i_cart_pos = i_labels_positions[:, 4:8].astype(np.float64)
                     else:
                         i_labels_positions = step["labels_positions_scaled"]
                         i_lattice_parameters = step["lattice_parameters"]
-                        i_atomic_numbers = i_labels_positions[:, 2].astype(np.int)
+                        i_atomic_numbers = std_atomic_number(i_labels_positions[:, 2].astype(np.int))
+                        i_atom_labels = standardize_label(i_labels_positions[:, 3])
                         i_scaled_pos = i_labels_positions[:, 4:8].astype(np.float64)
                         i_cart_pos, i_lattice_vectors = to_system(i_lattice_parameters, i_scaled_pos)
                         i_system.lattice_vectors = i_lattice_vectors
                         i_system.configuration_periodic_dimensions = pbc
 
                     i_system.atom_species = i_atomic_numbers
+                    i_system.atom_labels = i_atom_labels
                     i_system.atom_positions = i_cart_pos
                     if i_energy is not None:
                         i_scc.energy_total = i_energy
@@ -927,6 +935,11 @@ class CrystalParser(FairdiParser):
                 fs.number_of_frames_in_sequence = len(fs.frame_sequence_local_frames_ref)
                 fs.frame_sequence_to_sampling_ref = sampling_method
                 fs.geometry_optimization_converged = geo_opt["converged"] == "CONVERGED"
+
+        # Remove ghost atom information. The metainfo does not provide a very
+        # good way to deal with them currently so they are simply removed.
+        remove_ghosts(run)
+
 
 def to_k_points(segments):
     """Converts the given start and end points, the shrinking factor and the
@@ -992,13 +1005,43 @@ def to_array(cols, rows, values):
     return values
 
 
-def to_atomic_number(value):
+def std_atomic_number(value):
+    """Given an atomic numer in the NAT form (conventional atomic number, where
+    the real atomic number is the remainder when divided by 100), return the
+    actual atomic number.
+    """
+    return value % 100
+
+
+def remove_ghosts(run):
+    """Removes ghost atoms from the given section_system. In Crystal ghost
+    atoms are indicated by the atomic number 0.
+    """
+    for system in run.section_system:
+        ghosts_mask = system.atom_species == 0
+        if np.any(ghosts_mask):
+            system.atom_species = np.delete(system.atom_species, ghosts_mask)
+            system.atom_labels = np.delete(system.atom_labels, ghosts_mask)
+            system.atom_positions = np.delete(system.atom_positions.magnitude, ghosts_mask, axis=0)
+
+
+def label_to_atomic_number(value):
     """Given a Crystal specific uppercase species name, returns the
     corresponding atomic number.
     """
     symbol = value.lower().capitalize()
     atomic_number = ase.data.atomic_numbers[symbol]
     return atomic_number
+
+
+def standardize_label(value):
+    """Given Crystal specific uppercase species names, returns the capitalized
+    versions.
+    """
+    labels = []
+    for label in value:
+        labels.append(label.lower().capitalize())
+    return labels
 
 
 def to_unix_time(value):
