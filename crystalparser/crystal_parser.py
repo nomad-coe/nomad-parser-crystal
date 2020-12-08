@@ -164,23 +164,96 @@ class CrystalParser(FairdiParser):
                     repeats=False,
                 ),
                 Quantity(
-                    'lattice_parameters_supercell',
+                    'system_supercell',
+                    fr'( \* SUPERCELL OPTION{br}' +
+                    re.escape(' *******************************************************************************') + fr'{br}' +
+                    fr'{br}{br}' +
+                    fr'        EXPANSION MATRIX OF PRIMITIVE CELL{br}' +
+                    fr' E1\s+{flt}\s+{flt}\s+{flt}{br}' +
+                    fr' E2\s+{flt}\s+{flt}\s+{flt}{br}' +
+                    fr' E3\s+{flt}\s+{flt}\s+{flt}{br}{br}' +
+                    fr' NUMBER OF ATOMS PER SUPERCELL\s+{integer}{br}{br}' +
+                    fr'        DIRECT LATTICE VECTORS COMPONENTS \(ANGSTROM\){br}' +
+                    fr' B1\s+{flt}\s+{flt}\s+{flt}{br}' +
+                    fr' B2\s+{flt}\s+{flt}\s+{flt}{br}' +
+                    fr' B3\s+{flt}\s+{flt}\s+{flt}{br}{br}' +
                     fr' LATTICE PARAMETERS  \(ANGSTROM AND DEGREES\){br}' +
                     fr'       A          B          C         ALPHA     BETA     GAMMA        VOLUME{br}' +
-                    fr'\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt}{br}' +
-                    fr'{br}{br} \*\*\*\* ATOMS BELONGING TO THE SUPERCELL',
-                    shape=(6),
-                    dtype=np.float64,
+                    fr'\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}{br}' +
+                    fr'{br}{br} \*\*\*\* ATOMS BELONGING TO THE SUPERCELL{br}' +
+                    fr' LABEL AT\.NO\.      COORDINATES \(ANGSTROM AND FRACTIONAL\){br}' +
+                    fr'(?:\s+{integer}\s+{integer}\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}(?:\s+{flt})?{br})+' +
+                    fr'{br}' +
+                    re.escape(' **************************** SUPERCELL GENERATED ****************************') + fr'{br}{br}' +
+                    fr'(?: \*\*\*\* ATOMS IN THE SUPERCELL REORDERED FOR PHONON CALCULATION{br}' +
+                    fr'      ATOMS IN THE SMALL CELL ON TOP{br}{br}' +
+                    fr' LABEL AT\.NO\.      COORDINATES \(ANGSTROM\){br}' +
+                    fr'(?:\s+{integer}\s+{integer}\s+{flt}\s+{flt}\s+{flt}{br})+)?)',
+                    sub_parser=UnstructuredTextFileParser(quantities=[
+                        Quantity(
+                            "lattice_parameters_supercell",
+                            fr'\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt}{br}',
+                            shape=(6),
+                            dtype=np.float64,
+                            repeats=False,
+                        ),
+                        Quantity(
+                            "labels_positions_supercell",
+                            fr'((?:\s+{integer}\s+{integer}\s+{flt}\s+{flt}\s+{flt}{br})+)',
+                            shape=(-1, 5),
+                            dtype=str,
+                            repeats=False,
+                        ),
+                        Quantity(
+                            "labels_positions_phonon",
+                            fr' \*\*\*\* ATOMS IN THE SUPERCELL REORDERED FOR PHONON CALCULATION{br}' +
+                            fr'      ATOMS IN THE SMALL CELL ON TOP{br}{br}' +
+                            fr' LABEL AT\.NO\.      COORDINATES \(ANGSTROM\){br}' +
+                            fr'((?:\s+{integer}\s+{integer}\s+{flt}\s+{flt}\s+{flt}{br})+)',
+                            shape=(-1, 5),
+                            dtype=str,
+                            repeats=False,
+                        ),
+                    ]),
                     repeats=False,
                 ),
                 Quantity(
-                    'labels_positions_supercell',
-                    fr' \*\*\*\* ATOMS IN THE SUPERCELL REORDERED FOR PHONON CALCULATION{br}' +
-                    fr'      ATOMS IN THE SMALL CELL ON TOP{br}{br}' +
-                    fr' LABEL AT\.NO\.      COORDINATES \(ANGSTROM\){br}' +
-                    fr'((?:\s+{integer}\s+{integer}\s+{flt}\s+{flt}\s+{flt}{br})+)',
-                    shape=(-1, 5),
-                    dtype=str,
+                    'system_substitution',
+                    fr' \* SUBSTITUTION OF\s*{integer} ATOM\(S\){br}' +
+                    re.escape(' *******************************************************************************') + fr'{br}' +
+                    fr'(?: ATOM N\.[\S\s]*?{br})+?' +
+                    fr' THE NUMBER OF SYMMETRY OPERATORS HAS BEEN REDUCED FROM\s+{integer} TO\s+{integer}{br}' +
+                    re.escape(' *******************************************************************************') + fr'{br}' +
+                    re.escape(' *******************************************************************************') + fr'{br}' +
+                    fr' \*  GEOMETRY EDITING{br}' +
+                    fr' \*  THE SYMMETRY OF THE CRYSTAL IS KEPT AND APPLIED TO THE PERTURBATION{br}' +
+                    re.escape(' *******************************************************************************') + fr'{br}' +
+                    re.escape(' *******************************************************************************') + fr'{br}' +
+                    fr' LATTICE PARAMETERS \(ANGSTROMS AND DEGREES\) - BOHR = {flt} ANGSTROM{br}' +
+                    fr' PRIMITIVE CELL - CENTRING CODE\s*[\s\S]*?\s*VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3{br}' +
+                    fr'\s+A\s+B\s+C\s+ALPHA\s+BETA\s+GAMMA\s*{br}' +
+                    fr'\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}{br}' +
+                    re.escape(' *******************************************************************************') + fr'{br}' +
+                    fr' ATOMS IN THE ASYMMETRIC UNIT\s+{integer} - ATOMS IN THE UNIT CELL:\s+{integer}{br}' +
+                    fr'\s+ATOM\s+X/A\s+Y/B\s+Z/C\s*{br}' +
+                    re.escape(' *******************************************************************************') +
+                    fr'(?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}{br})+',
+                    sub_parser=UnstructuredTextFileParser(quantities=[
+                        Quantity(
+                            "lattice_parameters_substitution",
+                            fr'\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}',
+                            shape=(6),
+                            dtype=np.float64,
+                            repeats=False,
+                        ),
+                        Quantity(
+                            "labels_positions_substitution",
+                            fr'((?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}{br})+)',
+                            shape=(-1, 7),
+                            dtype=str,
+                            repeats=False,
+                        ),
+                    ]),
                     repeats=False,
                 ),
                 Quantity(
@@ -583,34 +656,51 @@ class CrystalParser(FairdiParser):
         # depending on the run type.
         system = run.m_create(section_system)
         molecular = out["molecular_calculation"] == "MOLECULAR CALCULATION"
-        lattice_parameters_supercell = out["lattice_parameters_supercell"]
+        lattice_parameters_phonon = out["lattice_parameters_phonon"]
+        system_substitution = out["system_substitution"]
+        system_supercell = out["system_supercell"]
         lattice_parameters = out["lattice_parameters"]
         lattice_vectors_restart = out["lattice_vectors_restart"]
         pbc = np.array([True, True, True])
         if molecular:
             labels_positions = out["labels_positions_molecule"]
             atomic_numbers = std_atomic_number(labels_positions[:, 2].astype(np.int))
-            atom_labels = standardize_label(labels_positions[:, 3])
+            atom_labels = std_label(labels_positions[:, 3])
             cart_pos = labels_positions[:, 4:7].astype(np.float64)
         else:
-            if lattice_parameters_supercell is not None:
-                lattice_vectors = atomutils.cellpar_to_cell(lattice_parameters_supercell, degrees=True)
-                labels_positions = out["labels_positions_supercell"]
+            if system_substitution is not None:
+                labels_positions = system_substitution["labels_positions_substitution"]
+                lattice_parameters = system_substitution["lattice_parameters_substitution"]
+                lattice_vectors = atomutils.cellpar_to_cell(lattice_parameters, degrees=True)
+                labels_positions = system_substitution["labels_positions_substitution"]
+                atomic_numbers = std_atomic_number(labels_positions[:, 2].astype(np.int))
+                atom_labels = std_label(labels_positions[:, 3])
+                scaled_pos = labels_positions[:, 4:7].astype(np.float64)
+                cart_pos = atomutils.to_cartesian(scaled_pos, lattice_vectors)
+            elif system_supercell is not None:
+                lattice_parameters = system_supercell["lattice_parameters_supercell"]
+                lattice_vectors = atomutils.cellpar_to_cell(lattice_parameters, degrees=True)
+                labels_positions = system_supercell["labels_positions_supercell"]
+                labels_positions_phonon = system_supercell["labels_positions_phonon"]
+                if system_supercell["labels_positions_phonon"] is not None:
+                    labels_positions = system_supercell["labels_positions_phonon"]
+                else:
+                    labels_positions = system_supercell["labels_positions_supercell"]
                 atomic_numbers = std_atomic_number(labels_positions[:, 1].astype(np.int))
-                atom_labels = standardize_label(labels_positions[:, 2])
+                atom_labels = atomic_numbers_to_labels(atomic_numbers)
                 cart_pos = labels_positions[:, 2:5].astype(np.float64)
             elif lattice_parameters is not None:
                 labels_positions = out["labels_positions"]
                 lattice_vectors = atomutils.cellpar_to_cell(lattice_parameters, degrees=True)
                 atomic_numbers = std_atomic_number(labels_positions[:, 2].astype(np.int))
-                atom_labels = standardize_label(labels_positions[:, 3])
+                atom_labels = std_label(labels_positions[:, 3])
                 scaled_pos = labels_positions[:, 4:7].astype(np.float64)
                 cart_pos, lattice_vectors = to_system(lattice_parameters, scaled_pos)
             elif lattice_vectors_restart is not None:
                 lattice_vectors = lattice_vectors_restart * ureg.angstrom
                 labels_positions = out["labels_positions_restart"]
                 atomic_numbers = std_atomic_number(labels_positions[:, 1].astype(np.int))
-                atom_labels = standardize_label(labels_positions[:, 2])
+                atom_labels = std_label(labels_positions[:, 2])
                 cart_pos = labels_positions[:, 4:7].astype(np.float64) * ureg.angstrom
             system.lattice_vectors = lattice_vectors
             system.configuration_periodic_dimensions = pbc
@@ -906,13 +996,13 @@ class CrystalParser(FairdiParser):
                     if molecular:
                         i_labels_positions = step["labels_positions_cartesian"]
                         i_atomic_numbers = std_atomic_number(i_labels_positions[:, 2].astype(np.int))
-                        i_atom_labels = standardize_label(i_labels_positions[:, 3])
+                        i_atom_labels = std_label(i_labels_positions[:, 3])
                         i_cart_pos = i_labels_positions[:, 4:8].astype(np.float64)
                     else:
                         i_labels_positions = step["labels_positions_scaled"]
                         i_lattice_parameters = step["lattice_parameters"]
                         i_atomic_numbers = std_atomic_number(i_labels_positions[:, 2].astype(np.int))
-                        i_atom_labels = standardize_label(i_labels_positions[:, 3])
+                        i_atom_labels = std_label(i_labels_positions[:, 3])
                         i_scaled_pos = i_labels_positions[:, 4:8].astype(np.float64)
                         i_cart_pos, i_lattice_vectors = to_system(i_lattice_parameters, i_scaled_pos)
                         i_system.lattice_vectors = i_lattice_vectors
@@ -1034,7 +1124,16 @@ def label_to_atomic_number(value):
     return atomic_number
 
 
-def standardize_label(value):
+def atomic_numbers_to_labels(value):
+    """Given a NAT atomic number, returns the
+    corresponding label.
+    """
+    atomic_numbers = std_atomic_number(value)
+    labels = np.array(ase.data.chemical_symbols)[atomic_numbers]
+    return labels
+
+
+def std_label(value):
     """Given Crystal specific uppercase species names, returns the capitalized
     versions.
     """
