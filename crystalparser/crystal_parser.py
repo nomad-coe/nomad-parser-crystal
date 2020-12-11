@@ -182,7 +182,7 @@ class CrystalParser(FairdiParser):
                     fr'\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}{br}' +
                     fr'{br}{br} \*\*\*\* ATOMS BELONGING TO THE SUPERCELL{br}' +
                     fr' LABEL AT\.NO\.      COORDINATES \(ANGSTROM AND FRACTIONAL\){br}' +
-                    fr'(?:\s+{integer}\s+{integer}\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}(?:\s+{flt})?{br})+' +
+                    fr'(?:\s+{integer}\s+{integer}\s+{flt}\s+{flt}\s+{flt}(?:\s+{flt})*?{br})+' +
                     fr'{br}' +
                     re.escape(' **************************** SUPERCELL GENERATED ****************************') + fr'{br}{br}' +
                     fr'(?: \*\*\*\* ATOMS IN THE SUPERCELL REORDERED FOR PHONON CALCULATION{br}' +
@@ -191,16 +191,19 @@ class CrystalParser(FairdiParser):
                     fr'(?:\s+{integer}\s+{integer}\s+{flt}\s+{flt}\s+{flt}{br})+)?)',
                     sub_parser=UnstructuredTextFileParser(quantities=[
                         Quantity(
-                            "lattice_parameters_supercell",
-                            fr'\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt}{br}',
-                            shape=(6),
+                            "lattice_vectors_supercell",
+                            fr' B1\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}' +
+                            fr' B2\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}' +
+                            fr' B3\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}{br}',
+                            shape=(3, 3),
                             dtype=np.float64,
                             repeats=False,
                         ),
                         Quantity(
                             "labels_positions_supercell",
-                            fr'((?:\s+{integer}\s+{integer}\s+{flt}\s+{flt}\s+{flt}{br})+)',
-                            shape=(-1, 5),
+                            fr' LABEL AT\.NO\.      COORDINATES \(ANGSTROM AND FRACTIONAL\){br}' +
+                            fr'((?:\s+{integer}\s+{integer}\s+{flt}\s+{flt}\s+{flt}(?:\s+{flt})*?{br})+)',
+                            str_operation=lambda x: x,
                             dtype=str,
                             repeats=False,
                         ),
@@ -228,8 +231,9 @@ class CrystalParser(FairdiParser):
                     fr' \*  GEOMETRY EDITING{br}' +
                     fr' \*  THE SYMMETRY OF THE CRYSTAL IS KEPT AND APPLIED TO THE PERTURBATION{br}' +
                     re.escape(' *******************************************************************************') + fr'{br}' +
+                    fr'(?: INFORMATION \*\*\*\* NEIGHBOR \*\*\*\* neighbors in geometry analysis\s+{integer}{br})?' +
                     re.escape(' *******************************************************************************') + fr'{br}' +
-                    fr' LATTICE PARAMETERS \(ANGSTROMS AND DEGREES\) - BOHR = {flt} ANGSTROM{br}' +
+                    fr' LATTICE PARAMETERS \(ANGSTROMS AND DEGREES\) - BOHR =\s*0?\.\d+ ANGSTROM{br}' +
                     fr' PRIMITIVE CELL - CENTRING CODE\s*[\s\S]*?\s*VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3{br}' +
                     fr'\s+A\s+B\s+C\s+ALPHA\s+BETA\s+GAMMA\s*{br}' +
                     fr'\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}{br}' +
@@ -678,17 +682,18 @@ class CrystalParser(FairdiParser):
                 scaled_pos = labels_positions[:, 4:7].astype(np.float64)
                 cart_pos = atomutils.to_cartesian(scaled_pos, lattice_vectors)
             elif system_supercell is not None:
-                lattice_parameters = system_supercell["lattice_parameters_supercell"]
-                lattice_vectors = atomutils.cellpar_to_cell(lattice_parameters, degrees=True)
+                lattice_vectors = system_supercell["lattice_vectors_supercell"]
                 labels_positions = system_supercell["labels_positions_supercell"]
                 labels_positions_phonon = system_supercell["labels_positions_phonon"]
                 if system_supercell["labels_positions_phonon"] is not None:
-                    labels_positions = system_supercell["labels_positions_phonon"]
+                    labels_positions = np.array(system_supercell["labels_positions_phonon"])
                 else:
-                    labels_positions = system_supercell["labels_positions_supercell"]
+                    labels_positions = labels_positions.strip()
+                    rows = labels_positions.split("\n")
+                    labels_positions = np.array([x.strip().split() for x in rows])
+                cart_pos = labels_positions[:, 2:5].astype(np.float64)
                 atomic_numbers = std_atomic_number(labels_positions[:, 1].astype(np.int))
                 atom_labels = atomic_numbers_to_labels(atomic_numbers)
-                cart_pos = labels_positions[:, 2:5].astype(np.float64)
             elif lattice_parameters is not None:
                 labels_positions = out["labels_positions"]
                 lattice_vectors = atomutils.cellpar_to_cell(lattice_parameters, degrees=True)

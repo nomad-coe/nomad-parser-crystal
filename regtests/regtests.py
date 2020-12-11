@@ -25,6 +25,12 @@ def test_misc():
     system = archive.section_run[0].section_system[0]
     assert set(system.atom_species) == set((8, 26, 22, 38))
 
+    # Tests that supercells are handled correctly
+    filepath = "./misc/supercell/fevo_x16_76_re.cryst.out"
+    archive = parse(filepath)
+    asserts_basic(archive)
+    asserts_basic_code_specific(archive)
+
     # Tests that substitutions are handled correctly
     filepath = "./misc/substitution/neutral.cryst.out"
     archive = parse(filepath)
@@ -32,6 +38,12 @@ def test_misc():
     asserts_basic_code_specific(archive)
     system = archive.section_run[0].section_system[0]
     assert set(system.atom_species) == set((8, 26, 22, 38))
+
+    # Geometry optimization with constraints
+    filepath = "./misc/constraints/ionic1_fullspin_spinfx_2.cryst.out"
+    archive = parse(filepath)
+    asserts_basic(archive)
+    asserts_basic_code_specific(archive)
 
 
 def test_xc_functionals():
