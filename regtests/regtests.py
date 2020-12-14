@@ -181,6 +181,8 @@ def asserts_basic(archive, method_type="DFT", system_type="3D", vdw=None, forces
     sccs = run.section_single_configuration_calculation
     n_atoms = len(systems[0].atom_species)
 
+    assert run.program_name is not None
+    assert run.program_version is not None
     assert run.time_run_date_start is not None
     assert run.time_run_date_end is not None
 

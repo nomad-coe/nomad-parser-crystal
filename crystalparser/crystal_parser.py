@@ -43,9 +43,7 @@ class CrystalParser(FairdiParser):
             code_name='Crystal',
             code_homepage='https://www.crystal.unito.it/',
             mainfile_contents_re=(
-                fr'(CRYSTAL\s*{br}\d+ \d+ \d+)|(CRYSTAL will run on \d+ processors)|'
-                r'(\s*\*\s*CRYSTAL[\d]+\s*\*\s*\*\s*(public|Release) \: [\d\.]+.*\*)|'
-                r'(Executable:\s*[/_\-a-zA-Z0-9]*MPPcrystal)'
+                fr'({br} \*\s+CRYSTAL[\d]+\s+\*{br} \*\s*{word} : \d+[\.\d+]*)'
             )
         )
 
@@ -108,7 +106,7 @@ class CrystalParser(FairdiParser):
                     ]),
                     repeats=False,
                 ),
-                Quantity("program_version", r'\s*\*\s*CRYSTAL(.*?)\s*\*\s*', repeats=False, dtype=str),
+                Quantity("program_version", fr'{br} \*\s*CRYSTAL([\d]+)\s+\*', repeats=False, dtype=str),
                 Quantity("distribution", fr'{br} \*\s*({word} : \d+[\.\d+]*)', str_operation=lambda x: x, repeats=False),
                 Quantity("start_timestamp", fr' EEEEEEEEEE STARTING  DATE\s+(.*? TIME .*?){br}', str_operation=lambda x: x, repeats=False),
                 Quantity("title", fr' EEEEEEEEEE STARTING  DATE.*?{br}\s*(.*?){br}{br}', str_operation=lambda x: x, repeats=False),
