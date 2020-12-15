@@ -26,12 +26,6 @@ def test_misc():
     system = archive.section_run[0].section_system[0]
     assert set(system.atom_species) == set((8, 26, 22, 38))
 
-    # Tests that supercells are handled correctly
-    filepath = "./misc/supercell/fevo_x16_76_re.cryst.out"
-    archive = parse(filepath)
-    asserts_basic(archive)
-    asserts_basic_code_specific(archive)
-
     # Tests that substitutions are handled correctly
     filepath = "./misc/substitution/neutral.cryst.out"
     archive = parse(filepath)
@@ -210,8 +204,8 @@ def asserts_basic(archive, method_type="DFT", system_type="3D", vdw=None, forces
         assert system.atom_species.shape[0] == n_atoms
         assert len(system.atom_labels) == n_atoms
 
-    assert method.scf_max_iteration is not None
-    assert method.scf_threshold_energy_change is not None
+    # assert method.scf_max_iteration is not None
+    # assert method.scf_threshold_energy_change is not None
 
     for scc in sccs:
         assert scc.single_configuration_calculation_to_system_ref is not None
