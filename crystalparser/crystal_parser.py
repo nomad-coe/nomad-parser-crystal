@@ -106,7 +106,7 @@ class CrystalParser(FairdiParser):
                     ]),
                     repeats=False,
                 ),
-                Quantity("program_version", fr'{br} \*\s*CRYSTAL([\d]+)\s+\*', repeats=False, dtype=str),
+                Quantity("program_version", fr'{br} \*\s+CRYSTAL([\d]+)\s+\*', repeats=False, dtype=str),
                 Quantity("distribution", fr'{br} \*\s*({word} : \d+[\.\d+]*)', str_operation=lambda x: x, repeats=False),
                 Quantity("start_timestamp", fr' EEEEEEEEEE STARTING  DATE\s+(.*? TIME .*?){br}', str_operation=lambda x: x, repeats=False),
                 Quantity("title", fr' EEEEEEEEEE STARTING  DATE.*?{br}\s*(.*?){br}{br}', str_operation=lambda x: x, repeats=False),

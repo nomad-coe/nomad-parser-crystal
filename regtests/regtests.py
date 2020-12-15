@@ -2,6 +2,7 @@ import pytest
 import numpy as np
 from crystalparser import CrystalParser
 from nomad.datamodel import EntryArchive
+from nomad.parsing.parsers import match_parser
 
 
 def test_misc():
@@ -180,6 +181,11 @@ def asserts_basic(archive, method_type="DFT", system_type="3D", vdw=None, forces
     method = run.section_method[0]
     sccs = run.section_single_configuration_calculation
     n_atoms = len(systems[0].atom_species)
+
+    assert run
+    assert sccs
+    assert systems
+    assert method
 
     assert run.program_name is not None
     assert run.program_version is not None
