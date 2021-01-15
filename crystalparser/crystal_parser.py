@@ -10,7 +10,7 @@ import numpy as np
 from nomad.units import ureg
 from nomad import atomutils
 from nomad.parsing.parser import FairdiParser
-from nomad.parsing.file_parser import UnstructuredTextFileParser, Quantity
+from nomad.parsing.file_parser import TextParser, Quantity
 from nomad.datamodel.metainfo.public import section_run, section_method, section_system,\
     section_XC_functionals, section_scf_iteration, section_single_configuration_calculation,\
     section_sampling_method, section_frame_sequence, section_eigenvalues, section_dos,\
@@ -50,7 +50,7 @@ class CrystalParser(FairdiParser):
     def parse_output(self, filepath):
         """Reads the calculation output.
         """
-        outputparser = UnstructuredTextFileParser(
+        outputparser = TextParser(
             filepath,
             quantities=[
                 # Header
@@ -69,7 +69,7 @@ class CrystalParser(FairdiParser):
                 Quantity(
                     "dftd3",
                     fr'(DFTD3{br}[\s\S]*?END{br})',
-                    sub_parser=UnstructuredTextFileParser(quantities=[
+                    sub_parser=TextParser(quantities=[
                         Quantity(
                             "version",
                             r'(VERSION \d)',
@@ -87,7 +87,7 @@ class CrystalParser(FairdiParser):
                 Quantity(
                     "dft",
                     fr'(DFT{br}[\w\s]*?END{br})',
-                    sub_parser=UnstructuredTextFileParser(quantities=[
+                    sub_parser=TextParser(quantities=[
                         Quantity(
                             "exchange",
                             fr'EXCHANGE{br}(LDA|VBH|BECKE|PBE|PBESOL|mPW91|PWGGA|SOGGA|WCGGA)',
@@ -187,7 +187,7 @@ class CrystalParser(FairdiParser):
                     fr'      ATOMS IN THE SMALL CELL ON TOP{br}{br}' +
                     fr' LABEL AT\.NO\.      COORDINATES \(ANGSTROM\){br}' +
                     fr'(?:\s+{integer}\s+{integer}\s+{flt}\s+{flt}\s+{flt}{br})+)?)',
-                    sub_parser=UnstructuredTextFileParser(quantities=[
+                    sub_parser=TextParser(quantities=[
                         Quantity(
                             "lattice_vectors_supercell",
                             fr' B1\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}' +
@@ -240,7 +240,7 @@ class CrystalParser(FairdiParser):
                     fr'\s+ATOM\s+X/A\s+Y/B\s+Z/C\s*{br}' +
                     re.escape(' *******************************************************************************') +
                     fr'(?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}{br})+',
-                    sub_parser=UnstructuredTextFileParser(quantities=[
+                    sub_parser=TextParser(quantities=[
                         Quantity(
                             "lattice_parameters_substitution",
                             fr'\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}',
@@ -282,16 +282,16 @@ class CrystalParser(FairdiParser):
                 # Method
                 Quantity(
                     'basis_set',
-                    re.escape(r' *******************************************************************************') + 
+                    re.escape(r' *******************************************************************************') +
                     fr'{br} LOCAL ATOMIC FUNCTIONS BASIS SET{br}' +
                     re.escape(r' *******************************************************************************') +
-                    fr'{br}   ATOM   X\(AU\)   Y\(AU\)   Z\(AU\)  N. TYPE  EXPONENT  S COEF   P COEF   D/F/G COEF{br}' + 
+                    fr'{br}   ATOM   X\(AU\)   Y\(AU\)   Z\(AU\)  N. TYPE  EXPONENT  S COEF   P COEF   D/F/G COEF{br}' +
                     fr'([\s\S]*?){br} INFORMATION',
-                    sub_parser=UnstructuredTextFileParser(quantities=[
+                    sub_parser=TextParser(quantities=[
                         Quantity(
                             "basis_sets",
                             fr'({ws}{integer}{ws}{word}{ws}{flt}{ws}{flt}{ws}{flt}{br}(?:(?:\s+(?:\d+-\s+)?\d+\s+(?:S|P|SP|D|F|G)\s*{br}[\s\S]*?(?:{ws}{flt}(?:{ws})?{flt}(?:{ws})?{flt}(?:{ws})?{flt}{br})+)+)?)',
-                            sub_parser=UnstructuredTextFileParser(quantities=[
+                            sub_parser=TextParser(quantities=[
                                 Quantity(
                                     "species",
                                     fr'({ws}{integer}{ws}{word}{ws}{flt}{ws}{flt}{ws}{flt}{br})',
@@ -300,7 +300,7 @@ class CrystalParser(FairdiParser):
                                 Quantity(
                                     "shells",
                                     fr'(\s+(?:\d+-\s+)?\d+\s+(?:S|P|SP|D|F|G)\s*{br}[\s\S]*?(?:{ws}{flt}(?:{ws})?{flt}(?:{ws})?{flt}(?:{ws})?{flt}{br})+)',
-                                    sub_parser=UnstructuredTextFileParser(quantities=[
+                                    sub_parser=TextParser(quantities=[
                                         Quantity(
                                             "shell_range",
                                             r'(\s+(?:\d+-\s+)?\d+)',
@@ -360,11 +360,11 @@ class CrystalParser(FairdiParser):
                 Quantity(
                     "scf_block",
                     r' CHARGE NORMALIZATION FACTOR([\s\S]*?) == SCF ENDED',
-                    sub_parser=UnstructuredTextFileParser(quantities=[
+                    sub_parser=TextParser(quantities=[
                         Quantity(
                             'scf_iterations',
                             r'( CHARGE NORMALIZATION FACTOR[\s\S]*? (?:TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT PDIG|TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT MPP_KSPA|== SCF ENDED))',
-                            sub_parser=UnstructuredTextFileParser(quantities=[
+                            sub_parser=TextParser(quantities=[
                                 Quantity('charge_normalization_factor', fr' CHARGE NORMALIZATION FACTOR{ws}{flt}{br}', repeats=False),
                                 Quantity('total_atomic_charges', fr' TOTAL ATOMIC CHARGES:{br}(?:{ws}{flt})+{br}', repeats=False),
                                 Quantity('QGAM', fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT QGAM        TELAPSE{ws}{flt}{ws}TCPU{ws}{flt}{br}', repeats=False),
@@ -399,16 +399,16 @@ class CrystalParser(FairdiParser):
                     # re.escape(r' *******************************************************************************') + fr'{br}' +
                     # fr' \*                             OPTIMIZATION STARTS                             \*{br}' +
                     fr' ((?:COORDINATE AND CELL OPTIMIZATION|COORDINATE OPTIMIZATION) - POINT\s+1{br}' +
-                    r'[\s\S]*?' + 
+                    r'[\s\S]*?' +
                     re.escape(r' ******************************************************************') + fr'{br}' +
                     fr'\s*\* OPT END - CONVERGED \* E\(AU\)\:\s+{flt}\s+POINTS\s+{integer})\s+\*{br}',
-                    sub_parser=UnstructuredTextFileParser(quantities=[
+                    sub_parser=TextParser(quantities=[
                         Quantity(
                             'geo_opt_step',
                             fr' (?:COORDINATE AND CELL OPTIMIZATION|COORDINATE OPTIMIZATION) - POINT\s+{integer}{br}' +
                             fr'([\s\S]*?)' +
                             fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT OPTI',
-                            sub_parser=UnstructuredTextFileParser(quantities=[
+                            sub_parser=TextParser(quantities=[
                                 Quantity(
                                     'lattice_parameters',
                                     fr' PRIMITIVE CELL - CENTRING CODE [\s\S]*?VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3{br}' +
@@ -453,14 +453,14 @@ class CrystalParser(FairdiParser):
                     re.escape(fr' *******************************************************************************') + fr'{br}' +
                     fr' \*                                                                             \*{br}' +
                     fr' \*  BAND STRUCTURE                                                             \*{br}' +
-                    fr'[\s\S]*?' + 
+                    fr'[\s\S]*?' +
                     fr' \*  FROM BAND\s+{integer} TO BAND\s+{integer}\s+\*{br}' +
                     fr' \*  TOTAL OF\s+{integer} K-POINTS ALONG THE PATH\s+\*{br}' +
                     fr' \*                                                                             \*{br}' +
                     re.escape(r' *******************************************************************************') + fr'{br}' +
-                    fr'([\s\S]*?' + 
+                    fr'([\s\S]*?' +
                     fr' ENERGY RANGE \(A\.U\.\)\s*{flt} - \s*{flt} EFERMI\s*{flt_c}{br})',
-                    sub_parser=UnstructuredTextFileParser(quantities=[
+                    sub_parser=TextParser(quantities=[
                         Quantity(
                             'segments',
                             fr' (LINE\s+{integer} \( {flt} {flt} {flt}: {flt} {flt} {flt}\) IN TERMS OF PRIMITIVE LATTICE VECTORS{br}' +
@@ -468,7 +468,7 @@ class CrystalParser(FairdiParser):
                             fr' CARTESIAN COORD\.\s+\( {flt} {flt} {flt}\):\( {flt} {flt} {flt}\) STEP\s+{flt}{br}{br}{br}' +
                             fr'(?:\s+{integer}\([\d/\s]+?\){br}' +
                             fr'(?:\s*{flt})+{br}{br})+)',
-                            sub_parser=UnstructuredTextFileParser(quantities=[
+                            sub_parser=TextParser(quantities=[
                                 Quantity(
                                     'start_end',
                                     fr'LINE\s+{integer} \( {flt_c} {flt_c} {flt_c}: {flt_c} {flt_c} {flt_c}\) IN TERMS OF PRIMITIVE LATTICE VECTORS{br}',
@@ -509,7 +509,7 @@ class CrystalParser(FairdiParser):
                     fr' TOTAL AND PROJECTED DENSITY OF STATES - FOURIER LEGENDRE METHOD{br}' +
                     fr'[\s\S]+?)' +
                     fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT DOSS        TELAPSE',
-                    sub_parser=UnstructuredTextFileParser(quantities=[
+                    sub_parser=TextParser(quantities=[
                         Quantity(
                             'k_points',
                             fr' \*\*\* K POINTS COORDINATES (OBLIQUE COORDINATES IN UNITS OF IS = {int}){br}',
@@ -536,7 +536,7 @@ class CrystalParser(FairdiParser):
                 Quantity(
                     'forces',
                     fr' CARTESIAN FORCES IN HARTREE/BOHR \(ANALYTICAL\){br}'
-                    fr'   ATOM                     X                   Y                   Z{br}' + 
+                    fr'   ATOM                     X                   Y                   Z{br}' +
                     fr'((?:' + ws + integer + ws + integer + ws + flt + ws + flt + ws + flt + fr'{br})*)',
                     shape=(-1, 5),
                     dtype=str,
@@ -555,7 +555,7 @@ class CrystalParser(FairdiParser):
     def parse_f25(self, filepath):
         """Parses the f25 file containing e.g. the band structure energies."
         """
-        f25parser = UnstructuredTextFileParser(
+        f25parser = TextParser(
             filepath,
             quantities=[
                 # Band structure energies
@@ -564,7 +564,7 @@ class CrystalParser(FairdiParser):
                     fr'\s*{flt}\s*{flt}{br}' +
                     fr'\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}{br}' +
                     fr'(?:\s*{flt})+)',
-                    sub_parser=UnstructuredTextFileParser(quantities=[
+                    sub_parser=TextParser(quantities=[
                         Quantity(
                             'first_row',
                             fr'-\%-0BAND\s*{integer_c}\s*{integer_c}\s?{flt_c}\s?{flt_c}\s?{flt_c}{br}',
@@ -591,7 +591,7 @@ class CrystalParser(FairdiParser):
                     fr'\s*{flt}\s?{flt}{br}' +
                     fr'\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}{br}' +
                     fr'(?:\s*{flt})+)',
-                    sub_parser=UnstructuredTextFileParser(quantities=[
+                    sub_parser=TextParser(quantities=[
                         Quantity(
                             'first_row',
                             fr'-\%-0DOSS\s*{integer_c}\s*{integer_c}\s?{flt_c}\s?{flt_c}\s?{flt_c}{br}',
@@ -735,7 +735,7 @@ class CrystalParser(FairdiParser):
                 method.van_der_Waals_method = "DFT-D3"
         if out["grimme"]:
             method.van_der_Waals_method = "G06"
-            
+
         # Try to primarily read the methodology from input
         dft = out["dft"]
         if dft:
@@ -941,9 +941,9 @@ class CrystalParser(FairdiParser):
                 sampling_method.sampling_method = "geometry_optimization"
                 sampling_method.geometry_optimization_energy_change = out["energy_change"]
                 sampling_method.geometry_optimization_geometry_change = out["geometry_change"]
-                run.m_add_sub_section(section_run.section_sampling_method, sampling_method) 
+                run.m_add_sub_section(section_run.section_sampling_method, sampling_method)
                 fs = section_frame_sequence()
-                run.m_add_sub_section(section_run.section_frame_sequence, fs) 
+                run.m_add_sub_section(section_run.section_frame_sequence, fs)
 
                 # First step is special: it refers to the initial system which
                 # was printed before entering the geometry optimization loop.
@@ -1009,7 +1009,7 @@ def to_k_points(segments):
         n_steps = segment["n_steps"]
 
         # Segments that do not start from a previous segment get special
-        # treatment. 
+        # treatment.
         end_idx = n_steps + 1
         if prev_point is None or not np.allclose(prev_point, start):
             end_idx = n_steps
