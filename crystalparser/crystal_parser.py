@@ -234,12 +234,12 @@ class CrystalParser(FairdiParser):
                     fr' LATTICE PARAMETERS \(ANGSTROMS AND DEGREES\) - BOHR =\s*0?\.\d+ ANGSTROM{br}' +
                     fr' PRIMITIVE CELL - CENTRING CODE\s*[\s\S]*?\s*VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3{br}' +
                     fr'\s+A\s+B\s+C\s+ALPHA\s+BETA\s+GAMMA\s*{br}' +
-                    fr'\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}{br}' +
+                    fr'(\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}{br}' +
                     re.escape(' *******************************************************************************') + fr'{br}' +
                     fr' ATOMS IN THE ASYMMETRIC UNIT\s+{integer} - ATOMS IN THE UNIT CELL:\s+{integer}{br}' +
                     fr'\s+ATOM\s+X/A\s+Y/B\s+Z/C\s*{br}' +
                     re.escape(' *******************************************************************************') +
-                    fr'(?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}{br})+',
+                    fr'(?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}{br})+)',
                     sub_parser=TextParser(quantities=[
                         Quantity(
                             "lattice_parameters_substitution",
@@ -396,9 +396,7 @@ class CrystalParser(FairdiParser):
                 # Geometry optimization steps
                 Quantity(
                     "geo_opt",
-                    # re.escape(r' *******************************************************************************') + fr'{br}' +
-                    # fr' \*                             OPTIMIZATION STARTS                             \*{br}' +
-                    fr' ((?:COORDINATE AND CELL OPTIMIZATION|COORDINATE OPTIMIZATION) - POINT\s+1{br}' +
+                    fr'( (?:COORDINATE AND CELL OPTIMIZATION|COORDINATE OPTIMIZATION) - POINT\s+1{br}' +
                     r'[\s\S]*?' +
                     re.escape(r' ******************************************************************') + fr'{br}' +
                     fr'\s*\* OPT END - CONVERGED \* E\(AU\)\:\s+{flt}\s+POINTS\s+{integer})\s+\*{br}',
@@ -407,7 +405,7 @@ class CrystalParser(FairdiParser):
                             'geo_opt_step',
                             fr' (?:COORDINATE AND CELL OPTIMIZATION|COORDINATE OPTIMIZATION) - POINT\s+{integer}{br}' +
                             fr'([\s\S]*?)' +
-                            fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT OPTI',
+                            fr' (?:TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT OPTI|\* OPT END)',
                             sub_parser=TextParser(quantities=[
                                 Quantity(
                                     'lattice_parameters',
@@ -442,7 +440,7 @@ class CrystalParser(FairdiParser):
                             ]),
                             repeats=True,
                         ),
-                        Quantity('converged', fr' \* OPT END - ([\s\S]*?) \* E\(AU\)\:\s+{flt}\s+POINTS\s+{integer}\s+\*{br}', repeats=False),
+                        Quantity('converged', fr' \* OPT END - ([\s\S]*?) \* E\(AU\)\:\s+{flt}\s+POINTS\s+{integer}', repeats=False),
                     ]),
                     repeats=False,
                 ),
