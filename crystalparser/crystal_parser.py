@@ -151,75 +151,12 @@ class CrystalParser(FairdiParser):
                     dtype=str,
                     repeats=False,
                 ),
+
+                # Used to capture an edited geometry. Can contain
+                # substitutions, supercells, deformations etc. in any order.
                 Quantity(
-                    'system_supercell',
-                    fr'( \* SUPERCELL OPTION{br}' +
-                    re.escape(' *******************************************************************************') + fr'{br}' +
-                    fr'{br}{br}' +
-                    fr'        EXPANSION MATRIX OF PRIMITIVE CELL{br}' +
-                    fr' E1\s+{flt}\s+{flt}\s+{flt}{br}' +
-                    fr' E2\s+{flt}\s+{flt}\s+{flt}{br}' +
-                    fr' E3\s+{flt}\s+{flt}\s+{flt}{br}{br}' +
-                    fr' NUMBER OF ATOMS PER SUPERCELL\s+{integer}{br}{br}' +
-                    fr'        DIRECT LATTICE VECTORS COMPONENTS \(ANGSTROM\){br}' +
-                    fr' B1\s+{flt}\s+{flt}\s+{flt}{br}' +
-                    fr' B2\s+{flt}\s+{flt}\s+{flt}{br}' +
-                    fr' B3\s+{flt}\s+{flt}\s+{flt}{br}{br}' +
-                    fr' LATTICE PARAMETERS  \(ANGSTROM AND DEGREES\){br}' +
-                    fr'       A          B          C         ALPHA     BETA     GAMMA        VOLUME{br}' +
-                    fr'\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}{br}' +
-                    fr'{br}{br} \*\*\*\* ATOMS BELONGING TO THE SUPERCELL{br}' +
-                    fr' LABEL AT\.NO\.      COORDINATES \(ANGSTROM AND FRACTIONAL\){br}' +
-                    fr'(?:\s+{integer}\s+{integer}\s+{flt}\s+{flt}\s+{flt}(?:\s+{flt})*?{br})+' +
-                    fr'{br}' +
-                    re.escape(' **************************** SUPERCELL GENERATED ****************************') + fr'{br}{br}' +
-                    fr'(?: \*\*\*\* ATOMS IN THE SUPERCELL REORDERED FOR PHONON CALCULATION{br}' +
-                    fr'      ATOMS IN THE SMALL CELL ON TOP{br}{br}' +
-                    fr' LABEL AT\.NO\.      COORDINATES \(ANGSTROM\){br}' +
-                    fr'(?:\s+{integer}\s+{integer}\s+{flt}\s+{flt}\s+{flt}{br})+)?)',
-                    sub_parser=TextParser(quantities=[
-                        Quantity(
-                            "lattice_vectors_supercell",
-                            fr' B1\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}' +
-                            fr' B2\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}' +
-                            fr' B3\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}{br}',
-                            shape=(3, 3),
-                            dtype=np.float64,
-                            repeats=False,
-                        ),
-                        Quantity(
-                            "labels_positions_supercell",
-                            fr' LABEL AT\.NO\.      COORDINATES \(ANGSTROM AND FRACTIONAL\){br}' +
-                            fr'((?:\s+{integer}\s+{integer}\s+{flt}\s+{flt}\s+{flt}(?:\s+{flt})*?{br})+)',
-                            str_operation=lambda x: x,
-                            dtype=str,
-                            repeats=False,
-                        ),
-                        Quantity(
-                            "labels_positions_phonon",
-                            fr' \*\*\*\* ATOMS IN THE SUPERCELL REORDERED FOR PHONON CALCULATION{br}' +
-                            fr'      ATOMS IN THE SMALL CELL ON TOP{br}{br}' +
-                            fr' LABEL AT\.NO\.      COORDINATES \(ANGSTROM\){br}' +
-                            fr'((?:\s+{integer}\s+{integer}\s+{flt}\s+{flt}\s+{flt}{br})+)',
-                            shape=(-1, 5),
-                            dtype=str,
-                            repeats=False,
-                        ),
-                    ]),
-                    repeats=False,
-                ),
-                Quantity(
-                    'system_substitution',
-                    fr' \* SUBSTITUTION OF\s*{integer} ATOM\(S\){br}' +
-                    re.escape(' *******************************************************************************') + fr'{br}' +
-                    fr'(?: ATOM N\.[\S\s]*?{br})+?' +
-                    fr' THE NUMBER OF SYMMETRY OPERATORS HAS BEEN REDUCED FROM\s+{integer} TO\s+{integer}{br}' +
-                    re.escape(' *******************************************************************************') + fr'{br}' +
-                    re.escape(' *******************************************************************************') + fr'{br}' +
-                    fr' \*  GEOMETRY EDITING{br}' +
-                    fr' \*  THE SYMMETRY OF THE CRYSTAL IS KEPT AND APPLIED TO THE PERTURBATION{br}' +
-                    re.escape(' *******************************************************************************') + fr'{br}' +
-                    fr'(?: INFORMATION \*\*\*\* NEIGHBOR \*\*\*\* neighbors in geometry analysis\s+{integer}{br})?' +
+                    'system_edited',
+                    fr' \*  GEOMETRY EDITING[\S\s]*?' +
                     re.escape(' *******************************************************************************') + fr'{br}' +
                     fr' LATTICE PARAMETERS \(ANGSTROMS AND DEGREES\) - BOHR =\s*0?\.\d+ ANGSTROM{br}' +
                     fr' PRIMITIVE CELL - CENTRING CODE\s*[\s\S]*?\s*VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3{br}' +
@@ -229,17 +166,19 @@ class CrystalParser(FairdiParser):
                     fr' ATOMS IN THE ASYMMETRIC UNIT\s+{integer} - ATOMS IN THE UNIT CELL:\s+{integer}{br}' +
                     fr'\s+ATOM\s+X/A\s+Y/B\s+Z/C\s*{br}' +
                     re.escape(' *******************************************************************************') +
-                    fr'(?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}{br})+)',
+                    fr'(?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}{br})+)' +
+                    fr'{br}' +
+                    fr' T = ATOM BELONGING TO THE ASYMMETRIC UNIT',
                     sub_parser=TextParser(quantities=[
                         Quantity(
-                            "lattice_parameters_substitution",
+                            "lattice_parameters",
                             fr'\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}',
                             shape=(6),
                             dtype=np.float64,
                             repeats=False,
                         ),
                         Quantity(
-                            "labels_positions_substitution",
+                            "labels_positions",
                             fr'((?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}{br})+)',
                             shape=(-1, 7),
                             dtype=str,
@@ -248,6 +187,7 @@ class CrystalParser(FairdiParser):
                     ]),
                     repeats=False,
                 ),
+
                 Quantity(
                     'lattice_vectors_restart',
                     fr' DIRECT LATTICE VECTOR COMPONENTS \(ANGSTROM\){br}' +
@@ -639,6 +579,7 @@ class CrystalParser(FairdiParser):
         lattice_parameters_phonon = out["lattice_parameters_phonon"]
         system_substitution = out["system_substitution"]
         system_supercell = out["system_supercell"]
+        system_edited = out["system_edited"]
         labels_positions = out["labels_positions"]
         lattice_vectors_restart = out["lattice_vectors_restart"]
         pbc = None if material_type == "MOLECULAR CALCULATION" else np.array([True, True, True])
@@ -663,26 +604,15 @@ class CrystalParser(FairdiParser):
             lattice = lattice_vectors_restart
             pos_type = "cartesian"
 
-        # If supercells or substitutions are later defined, they override the
-        # system
-        if system_substitution is not None:
-            labels_positions = system_substitution["labels_positions_substitution"]
+        # If any geometry edits (supercells, substitutions, dispplacements,
+        # deformations, etc.) are done on top of the original system, they
+        # override the original system.
+        if system_edited is not None:
+            labels_positions = system_edited["labels_positions"]
             atomic_numbers = labels_positions[:, 2]
             atom_labels = labels_positions[:, 3]
             atom_pos = labels_positions[:, 4:7]
-            lattice = system_substitution["lattice_parameters_substitution"]
-        elif system_supercell is not None:
-            if system_supercell["labels_positions_phonon"] is not None:
-                labels_positions = system_supercell["labels_positions_phonon"]
-            else:
-                labels_positions = labels_positions.strip()
-                rows = labels_positions.split("\n")
-                labels_positions = np.array([x.strip().split() for x in rows])
-            atomic_numbers = labels_positions[:, 1].astype(np.int)
-            atom_labels = atomic_numbers_to_labels(atomic_numbers)
-            atom_pos = labels_positions[:, 2:5]
-            lattice = system_supercell["lattice_vectors_supercell"]
-            pos_type = "cartesian"
+            lattice = system_edited["lattice_parameters"]
 
         cart_pos, atomic_numbers, atom_labels, lattice_vectors = to_system(
             atomic_numbers,

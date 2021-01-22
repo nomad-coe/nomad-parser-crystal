@@ -40,6 +40,12 @@ def test_misc():
     asserts_basic(archive)
     asserts_basic_code_specific(archive)
 
+    # Displacement of atoms
+    filepath = "./misc/displacement/fe50_x8_l0_re.cryst.out"
+    archive = parse(filepath)
+    asserts_basic(archive)
+    asserts_basic_code_specific(archive)
+
 
 def test_xc_functionals():
     """Tests that different kinds of XC functionals are correctly identified.
