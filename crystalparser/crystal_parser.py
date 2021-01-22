@@ -127,14 +127,14 @@ class CrystalParser(FairdiParser):
                 Quantity('sorting_of_energy_points', fr'SORTING OF ENERGY POINTS\:\s+{word_c}', repeats=False),
 
                 # System
-                Quantity("molecular_calculation", fr' (MOLECULAR CALCULATION){br}', str_operation=lambda x: x, repeats=False),
+                Quantity("material_type", fr' ((?:MOLECULAR|SLAB) CALCULATION){br}', str_operation=lambda x: x, repeats=False),
                 Quantity("crystal_family", fr' CRYSTAL FAMILY\s*:\s*([\s\S]+?)\s*{br}', str_operation=lambda x: x, repeats=False),
                 Quantity("crystal_class", fr' CRYSTAL CLASS  \(GROTH - 1921\)\s*:\s*([\s\S]+?)\s*{br}', str_operation=lambda x: x, repeats=False),
                 Quantity("space_group", fr' SPACE GROUP \(CENTROSYMMETRIC\)\s*:\s*([\s\S]+?)\s*{br}', str_operation=lambda x: x, repeats=False),
                 Quantity("dimensionality", fr' GEOMETRY FOR WAVE FUNCTION - DIMENSIONALITY OF THE SYSTEM\s+(\d)', repeats=False),
                 Quantity(
                     'lattice_parameters',
-                    fr' PRIMITIVE CELL - CENTRING CODE\s*[\s\S]*?\s*VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3{br}' +
+                    fr' (?:PRIMITIVE CELL - CENTRING CODE\s*[\s\S]*?\s*VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3{br}|PRIMITIVE CELL{br})' +
                     fr'         A              B              C           ALPHA      BETA       GAMMA\s*' +
                     fr'{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}',
                     shape=(6),
@@ -142,19 +142,9 @@ class CrystalParser(FairdiParser):
                     repeats=False,
                 ),
                 Quantity(
-                    "labels_positions_molecule",
-                    fr' ATOMS IN THE ASYMMETRIC UNIT\s+{integer} - ATOMS IN THE UNIT CELL:\s+{integer}{br}' +
-                    fr'     ATOM          X\(ANGSTROM\)         Y\(ANGSTROM\)         Z\(ANGSTROM\){br}' +
-                    re.escape(' *******************************************************************************') +
-                    fr'((?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}{br})+)',
-                    shape=(-1, 7),
-                    dtype=str,
-                    repeats=False,
-                ),
-                Quantity(
                     "labels_positions",
                     fr' ATOMS IN THE ASYMMETRIC UNIT\s+{integer} - ATOMS IN THE UNIT CELL:\s+{integer}{br}' +
-                    fr'\s+ATOM\s+X/A\s+Y/B\s+Z/C\s*{br}' +
+                    fr'\s+ATOM\s+X(?:/A|\(ANGSTROM\))\s+Y(?:/B|\(ANGSTROM\))\s+Z(?:/C|\(ANGSTROM\))\s*{br}' +
                     re.escape(' *******************************************************************************') +
                     fr'((?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}{br})+)',
                     shape=(-1, 7),
@@ -409,7 +399,7 @@ class CrystalParser(FairdiParser):
                             sub_parser=TextParser(quantities=[
                                 Quantity(
                                     'lattice_parameters',
-                                    fr' PRIMITIVE CELL - CENTRING CODE [\s\S]*?VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3{br}' +
+                                    fr' (?:PRIMITIVE CELL - CENTRING CODE [\s\S]*?VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3{br}|PRIMITIVE CELL{br})' +
                                     fr'         A              B              C           ALPHA      BETA       GAMMA\s*' +
                                     fr'{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}',
                                     shape=(6),
@@ -417,19 +407,9 @@ class CrystalParser(FairdiParser):
                                     repeats=False,
                                 ),
                                 Quantity(
-                                    "labels_positions_scaled",
+                                    "labels_positions",
                                     fr' ATOMS IN THE ASYMMETRIC UNIT\s+{integer} - ATOMS IN THE UNIT CELL:\s+{integer}{br}' +
-                                    fr'\s+ATOM\s+X/A\s+Y/B\s+Z/C\s*{br}' +
-                                    re.escape(' *******************************************************************************') +
-                                    fr'((?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}{br})+)',
-                                    shape=(-1, 7),
-                                    dtype=str,
-                                    repeats=False,
-                                ),
-                                Quantity(
-                                    "labels_positions_cartesian",
-                                    fr' ATOMS IN THE ASYMMETRIC UNIT\s+{integer} - ATOMS IN THE UNIT CELL:\s+{integer}{br}' +
-                                    fr'     ATOM          X\(ANGSTROM\)         Y\(ANGSTROM\)         Z\(ANGSTROM\){br}' +
+                                    fr'\s+ATOM\s+X(?:/A|\(ANGSTROM\))\s+Y(?:/B|\(ANGSTROM\))\s+Z(?:/C|\(ANGSTROM\))\s*{br}' +
                                     re.escape(' *******************************************************************************') +
                                     fr'((?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}{br})+)',
                                     shape=(-1, 7),
@@ -655,57 +635,65 @@ class CrystalParser(FairdiParser):
         # System. There are several alternative sources for this information
         # depending on the run type.
         system = run.m_create(section_system)
-        molecular = out["molecular_calculation"] == "MOLECULAR CALCULATION"
+        material_type = out["material_type"]
         lattice_parameters_phonon = out["lattice_parameters_phonon"]
         system_substitution = out["system_substitution"]
         system_supercell = out["system_supercell"]
-        lattice_parameters = out["lattice_parameters"]
+        labels_positions = out["labels_positions"]
         lattice_vectors_restart = out["lattice_vectors_restart"]
-        pbc = np.array([True, True, True])
-        if molecular:
-            labels_positions = out["labels_positions_molecule"]
-            atomic_numbers = std_atomic_number(labels_positions[:, 2].astype(np.int))
-            atom_labels = std_label(labels_positions[:, 3])
-            cart_pos = labels_positions[:, 4:7].astype(np.float64)
-        else:
-            if system_substitution is not None:
-                labels_positions = system_substitution["labels_positions_substitution"]
-                lattice_parameters = system_substitution["lattice_parameters_substitution"]
-                lattice_vectors = atomutils.cellpar_to_cell(lattice_parameters, degrees=True)
-                labels_positions = system_substitution["labels_positions_substitution"]
-                atomic_numbers = std_atomic_number(labels_positions[:, 2].astype(np.int))
-                atom_labels = std_label(labels_positions[:, 3])
-                scaled_pos = labels_positions[:, 4:7].astype(np.float64)
-                cart_pos = atomutils.to_cartesian(scaled_pos, lattice_vectors)
-            elif system_supercell is not None:
-                lattice_vectors = system_supercell["lattice_vectors_supercell"]
-                labels_positions = system_supercell["labels_positions_supercell"]
-                labels_positions_phonon = system_supercell["labels_positions_phonon"]
-                if system_supercell["labels_positions_phonon"] is not None:
-                    labels_positions = np.array(system_supercell["labels_positions_phonon"])
-                else:
-                    labels_positions = labels_positions.strip()
-                    rows = labels_positions.split("\n")
-                    labels_positions = np.array([x.strip().split() for x in rows])
-                cart_pos = labels_positions[:, 2:5].astype(np.float64)
-                atomic_numbers = std_atomic_number(labels_positions[:, 1].astype(np.int))
-                atom_labels = atomic_numbers_to_labels(atomic_numbers)
-            elif lattice_parameters is not None:
-                labels_positions = out["labels_positions"]
-                lattice_vectors = atomutils.cellpar_to_cell(lattice_parameters, degrees=True)
-                atomic_numbers = std_atomic_number(labels_positions[:, 2].astype(np.int))
-                atom_labels = std_label(labels_positions[:, 3])
-                scaled_pos = labels_positions[:, 4:7].astype(np.float64)
-                cart_pos, lattice_vectors = to_system(lattice_parameters, scaled_pos)
-            elif lattice_vectors_restart is not None:
-                lattice_vectors = lattice_vectors_restart * ureg.angstrom
-                labels_positions = out["labels_positions_restart"]
-                atomic_numbers = std_atomic_number(labels_positions[:, 1].astype(np.int))
-                atom_labels = std_label(labels_positions[:, 2])
-                cart_pos = labels_positions[:, 4:7].astype(np.float64) * ureg.angstrom
-            system.lattice_vectors = lattice_vectors
-            system.configuration_periodic_dimensions = pbc
+        pbc = None if material_type == "MOLECULAR CALCULATION" else np.array([True, True, True])
 
+        # By default the system is read from the configuration at the beginning
+        # of the file: it may come from restart or clean start
+        pos_type = {
+            "MOLECULAR CALCULATION": "cartesian",
+            "SLAB CALCULATION": "slab",
+            None: "scaled",
+        }.get(material_type)
+        if labels_positions is not None:
+            atomic_numbers = labels_positions[:, 2]
+            atom_labels = labels_positions[:, 3]
+            atom_pos = labels_positions[:, 4:7]
+            lattice = out["lattice_parameters"]
+        elif lattice_vectors_restart is not None:
+            labels_positions = out["labels_positions_restart"]
+            atomic_numbers = labels_positions[:, 1]
+            atom_labels = labels_positions[:, 2]
+            atom_pos = labels_positions[:, 4:7]
+            lattice = lattice_vectors_restart
+            pos_type = "cartesian"
+
+        # If supercells or substitutions are later defined, they override the
+        # system
+        if system_substitution is not None:
+            labels_positions = system_substitution["labels_positions_substitution"]
+            atomic_numbers = labels_positions[:, 2]
+            atom_labels = labels_positions[:, 3]
+            atom_pos = labels_positions[:, 4:7]
+            lattice = system_substitution["lattice_parameters_substitution"]
+        elif system_supercell is not None:
+            if system_supercell["labels_positions_phonon"] is not None:
+                labels_positions = system_supercell["labels_positions_phonon"]
+            else:
+                labels_positions = labels_positions.strip()
+                rows = labels_positions.split("\n")
+                labels_positions = np.array([x.strip().split() for x in rows])
+            atomic_numbers = labels_positions[:, 1].astype(np.int)
+            atom_labels = atomic_numbers_to_labels(atomic_numbers)
+            atom_pos = labels_positions[:, 2:5]
+            lattice = system_supercell["lattice_vectors_supercell"]
+            pos_type = "cartesian"
+
+        cart_pos, atomic_numbers, atom_labels, lattice_vectors = to_system(
+            atomic_numbers,
+            atom_labels,
+            atom_pos,
+            lattice,
+            pos_type=pos_type,
+        )
+
+        system.lattice_vectors = lattice_vectors
+        system.configuration_periodic_dimensions = pbc
         system.atom_positions = cart_pos
         system.atom_species = atomic_numbers
         system.atom_labels = atom_labels
@@ -954,24 +942,22 @@ class CrystalParser(FairdiParser):
                     i_scc = section_single_configuration_calculation()
                     i_system = section_system()
                     i_energy = step["energy"]
-                    if molecular:
-                        i_labels_positions = step["labels_positions_cartesian"]
-                        i_atomic_numbers = std_atomic_number(i_labels_positions[:, 2].astype(np.int))
-                        i_atom_labels = std_label(i_labels_positions[:, 3])
-                        i_cart_pos = i_labels_positions[:, 4:8].astype(np.float64)
-                    else:
-                        i_labels_positions = step["labels_positions_scaled"]
-                        i_lattice_parameters = step["lattice_parameters"]
-                        i_atomic_numbers = std_atomic_number(i_labels_positions[:, 2].astype(np.int))
-                        i_atom_labels = std_label(i_labels_positions[:, 3])
-                        i_scaled_pos = i_labels_positions[:, 4:8].astype(np.float64)
-                        i_cart_pos, i_lattice_vectors = to_system(i_lattice_parameters, i_scaled_pos)
-                        i_system.lattice_vectors = i_lattice_vectors
-                        i_system.configuration_periodic_dimensions = pbc
-
+                    i_labels_positions = step["labels_positions"]
+                    i_atomic_numbers = i_labels_positions[:, 2]
+                    i_atom_labels = i_labels_positions[:, 3]
+                    i_atom_pos = i_labels_positions[:, 4:7]
+                    i_lattice_parameters = step["lattice_parameters"]
+                    i_cart_pos, i_atomic_numbers, i_atom_labels, i_lattice_vectors = to_system(
+                        i_atomic_numbers,
+                        i_atom_labels,
+                        i_atom_pos,
+                        i_lattice_parameters, pos_type
+                    )
                     i_system.atom_species = i_atomic_numbers
                     i_system.atom_labels = i_atom_labels
                     i_system.atom_positions = i_cart_pos
+                    i_system.lattice_vectors = i_lattice_vectors
+                    i_system.configuration_periodic_dimensions = pbc
                     i_scc.energy_total = i_energy
 
                     i_scc.single_configuration_calculation_to_system_ref = i_system
@@ -1024,15 +1010,48 @@ def to_k_points(segments):
     return all_k_points
 
 
-def to_system(lattice_parameters, scaled_pos):
-    """Converts the primitive cell reported by Crystal into the corresponding
-    species, cartesian positions and lattice vectors.
+def to_system(atomic_numbers, labels, positions, lattice, pos_type="scaled", wrap=False):
+    """Converts a Crystal-specific structure format into cartesian positions
+    and lattice vectors (if present). The conversion depends on the material
+    type.
     """
-    lattice_vectors = atomutils.cellpar_to_cell(lattice_parameters, degrees=True)
-    wrapped_pos = atomutils.wrap_positions(scaled_pos)
-    cart_pos = atomutils.to_cartesian(wrapped_pos, lattice_vectors)
+    atomic_numbers = std_atomic_number(atomic_numbers.astype(np.int))
+    atom_labels = std_label(labels)
+    positions = positions.astype(np.float64)
 
-    return cart_pos * ureg.angstrom, lattice_vectors * ureg.angstrom
+    # Get the lattice vectors
+    if lattice is not None:
+        if lattice.shape == (6,):
+            lattice_vectors = atomutils.cellpar_to_cell(lattice, degrees=True)
+        elif lattice.shape == (3, 3):
+            lattice_vectors = lattice
+    else:
+        lattice_vectors = None
+
+    # Convert positions based on the given type
+    if pos_type == "cartesian":
+        if lattice_vectors is not None and wrap:
+            cart_pos = atomutils.wrap_positions(positions, lattice_vectors)
+        else:
+            cart_pos = positions
+    elif pos_type == "slab":
+        n_atoms = atomic_numbers.shape[0]
+        scaled_pos = np.zeros((n_atoms, 3), dtype=np.float64)
+        scaled_pos[:, 0:2] = positions[:, 0:2]
+        if wrap:
+            wrapped_pos = atomutils.wrap_positions(scaled_pos)
+        else:
+            wrapped_pos = scaled_pos
+        cart_pos = atomutils.to_cartesian(wrapped_pos, lattice_vectors)
+        cart_pos[:, 2:3] = positions[:, 2:3]
+    elif pos_type == "scaled":
+        scaled_pos = atomutils.wrap_positions(positions) if wrap else positions
+        cart_pos = atomutils.to_cartesian(scaled_pos, lattice_vectors)
+
+    if lattice_vectors is not None:
+        lattice_vectors *= ureg.angstrom
+        
+    return cart_pos * ureg.angstrom, atomic_numbers, atom_labels, lattice_vectors
 
 
 def to_float(value):

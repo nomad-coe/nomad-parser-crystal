@@ -87,6 +87,16 @@ def test_molecule():
     method = archive.section_run[0].section_method[0]
     assert method.XC_functional == "1.0*HYB_GGA_XC_PBEH"
 
+
+def test_surface():
+    """Tests that surface calculations are parsed correctly.
+    """
+    filepath = "./surface/w221_sr_pbe0.cryst.out"
+    archive = parse(filepath)
+    asserts_basic(archive, system_type="2D")
+    asserts_basic_code_specific(archive, system_type="2D")
+
+
 def test_single_point_dft():
     """Tests that single point DFT calculations are parsed succesfully.
     """
@@ -245,7 +255,7 @@ def asserts_basic_code_specific(archive, method_type="DFT", system_type="3D", ru
     assert method.x_crystal_tol_pseudo_overlap_p is not None
     assert method.x_crystal_pole_order is not None
     assert method.x_crystal_type_of_calculation is not None
-    if system_type != "0D":
+    if system_type == "3D":
         assert method.x_crystal_is1 is not None
         assert method.x_crystal_is2 is not None
         assert method.x_crystal_is3 is not None
@@ -320,4 +330,5 @@ if __name__ == "__main__":
     test_dos()
     test_xc_functionals()
     test_molecule()
+    test_surface()
     test_misc()
