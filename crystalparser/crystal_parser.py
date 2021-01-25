@@ -356,7 +356,7 @@ class CrystalParser(FairdiParser):
                                     dtype=str,
                                     repeats=False,
                                 ),
-                                Quantity('energy', fr' TOTAL ENERGY\({word}\)\(AU\)\(\s*{integer}\)\s*{flt_c}', repeats=False),
+                                Quantity('energy', fr' TOTAL ENERGY\({word}\)\(AU\)\(\s*{integer}\)\s*{flt_c}', unit=ureg.hartree, repeats=False),
                             ]),
                             repeats=True,
                         ),
