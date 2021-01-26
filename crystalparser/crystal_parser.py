@@ -563,9 +563,10 @@ class CrystalParser(FairdiParser):
         run.x_crystal_tmpdir = out["tmpdir"]
         run.x_crystal_executable_path = out["executable_path"]
         distribution = out["distribution"]
-        dist, minor = distribution.split(" : ", 1)
-        run.x_crystal_distribution = dist
-        run.x_crystal_version_minor = minor
+        if distribution is not None:
+            dist, minor = distribution.split(" : ", 1)
+            run.x_crystal_distribution = dist
+            run.x_crystal_version_minor = minor
         title = out["title"]
         if title is not None:
             run.x_crystal_run_title = title.strip()
@@ -980,7 +981,7 @@ def to_system(atomic_numbers, labels, positions, lattice, pos_type="scaled", wra
 
     if lattice_vectors is not None:
         lattice_vectors *= ureg.angstrom
-        
+
     return cart_pos * ureg.angstrom, atomic_numbers, atom_labels, lattice_vectors
 
 
