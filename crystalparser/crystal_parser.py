@@ -156,17 +156,17 @@ class CrystalParser(FairdiParser):
                 # substitutions, supercells, deformations etc. in any order.
                 Quantity(
                     'system_edited',
-                    fr' \*  GEOMETRY EDITING[\S\s]*?' +
+                    fr' \*\s+GEOMETRY EDITING[\S\s]*?' +
                     re.escape(' *******************************************************************************') + fr'{br}' +
                     fr' LATTICE PARAMETERS \(ANGSTROMS AND DEGREES\) - BOHR =\s*0?\.\d+ ANGSTROM{br}' +
-                    fr' PRIMITIVE CELL - CENTRING CODE\s*[\s\S]*?\s*VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3{br}' +
+                    fr' (?:PRIMITIVE CELL - CENTRING CODE [\s\S]*?VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3|PRIMITIVE CELL){br}' +
                     fr'\s+A\s+B\s+C\s+ALPHA\s+BETA\s+GAMMA\s*{br}' +
                     fr'(\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}{br}' +
                     re.escape(' *******************************************************************************') + fr'{br}' +
                     fr' ATOMS IN THE ASYMMETRIC UNIT\s+{integer} - ATOMS IN THE UNIT CELL:\s+{integer}{br}' +
-                    fr'\s+ATOM\s+X/A\s+Y/B\s+Z/C\s*{br}' +
+                    fr'\s+ATOM\s+X(?:/A|\(ANGSTROM\))\s+Y(?:/B|\(ANGSTROM\))\s+Z(?:/C|\(ANGSTROM\))(?:\s+R\(ANGS\))?\s*{br}' +
                     re.escape(' *******************************************************************************') +
-                    fr'(?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}{br})+)' +
+                    fr'(?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}(?:\s+{flt})?{br})+)' +
                     fr'{br}' +
                     fr' T = ATOM BELONGING TO THE ASYMMETRIC UNIT',
                     sub_parser=TextParser(quantities=[
@@ -179,8 +179,19 @@ class CrystalParser(FairdiParser):
                         ),
                         Quantity(
                             "labels_positions",
+                            fr'\s+ATOM\s+X(?:/A|\(ANGSTROM\))\s+Y(?:/B|\(ANGSTROM\))\s+Z(?:/C|\(ANGSTROM\))\s*{br}' +
+                            re.escape(' *******************************************************************************') +
                             fr'((?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}{br})+)',
                             shape=(-1, 7),
+                            dtype=str,
+                            repeats=False,
+                        ),
+                        Quantity(
+                            "labels_positions_nanotube",
+                            fr'\s+ATOM\s+X/A\s+Y\(ANGSTROM\)\s+Z\(ANGSTROM\)\s+R\(ANGS\)\s*{br}' +
+                            re.escape(' *******************************************************************************') +
+                            fr'((?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}\s+{flt}{br})+)',
+                            shape=(-1, 8),
                             dtype=str,
                             repeats=False,
                         ),
@@ -348,11 +359,19 @@ class CrystalParser(FairdiParser):
                                 ),
                                 Quantity(
                                     "labels_positions",
-                                    fr' ATOMS IN THE ASYMMETRIC UNIT\s+{integer} - ATOMS IN THE UNIT CELL:\s+{integer}{br}' +
                                     fr'\s+ATOM\s+X(?:/A|\(ANGSTROM\))\s+Y(?:/B|\(ANGSTROM\))\s+Z(?:/C|\(ANGSTROM\))\s*{br}' +
                                     re.escape(' *******************************************************************************') +
                                     fr'((?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}{br})+)',
                                     shape=(-1, 7),
+                                    dtype=str,
+                                    repeats=False,
+                                ),
+                                Quantity(
+                                    "labels_positions_nanotube",
+                                    fr'\s+ATOM\s+X/A\s+Y\(ANGSTROM\)\s+Z\(ANGSTROM\)\s+R\(ANGS\)\s*{br}' +
+                                    re.escape(' *******************************************************************************') +
+                                    fr'((?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}\s+{flt}{br})+)',
+                                    shape=(-1, 8),
                                     dtype=str,
                                     repeats=False,
                                 ),
@@ -597,10 +616,14 @@ class CrystalParser(FairdiParser):
             pos_type = "cartesian"
 
         # If any geometry edits (supercells, substitutions, dispplacements,
-        # deformations, etc.) are done on top of the original system, they
-        # override the original system.
+        # deformations, nanotube construction, etc.) are done on top of the
+        # original system, they override the original system.
         if system_edited is not None:
-            labels_positions = system_edited["labels_positions"]
+            if system_edited["labels_positions_nanotube"] is not None:
+                pos_type = "nanotube"
+                labels_positions = system_edited["labels_positions_nanotube"]
+            else:
+                labels_positions = system_edited["labels_positions"]
             atomic_numbers = labels_positions[:, 2]
             atom_labels = labels_positions[:, 3]
             atom_pos = labels_positions[:, 4:7]
@@ -863,7 +886,10 @@ class CrystalParser(FairdiParser):
                     i_scc = section_single_configuration_calculation()
                     i_system = section_system()
                     i_energy = step["energy"]
-                    i_labels_positions = step["labels_positions"]
+                    if step["labels_positions_nanotube"] is not None:
+                        i_labels_positions = step["labels_positions_nanotube"]
+                    else:
+                        i_labels_positions = step["labels_positions"]
                     i_atomic_numbers = i_labels_positions[:, 2]
                     i_atom_labels = i_labels_positions[:, 3]
                     i_atom_pos = i_labels_positions[:, 4:7]
@@ -872,7 +898,8 @@ class CrystalParser(FairdiParser):
                         i_atomic_numbers,
                         i_atom_labels,
                         i_atom_pos,
-                        i_lattice_parameters, pos_type
+                        i_lattice_parameters,
+                        pos_type,
                     )
                     i_system.atom_species = i_atomic_numbers
                     i_system.atom_labels = i_atom_labels
@@ -965,6 +992,16 @@ def to_system(atomic_numbers, labels, positions, lattice, pos_type="scaled", wra
             wrapped_pos = scaled_pos
         cart_pos = atomutils.to_cartesian(wrapped_pos, lattice_vectors)
         cart_pos[:, 2:3] = positions[:, 2:3]
+    elif pos_type == "nanotube":
+        n_atoms = atomic_numbers.shape[0]
+        scaled_pos = np.zeros((n_atoms, 3), dtype=np.float64)
+        scaled_pos[:, 0:1] = positions[:, 0:1]
+        if wrap:
+            wrapped_pos = atomutils.wrap_positions(scaled_pos)
+        else:
+            wrapped_pos = scaled_pos
+        cart_pos = atomutils.to_cartesian(wrapped_pos, lattice_vectors)
+        cart_pos[:, 1:3] = positions[:, 1:3]
     elif pos_type == "scaled":
         scaled_pos = atomutils.wrap_positions(positions) if wrap else positions
         cart_pos = atomutils.to_cartesian(scaled_pos, lattice_vectors)

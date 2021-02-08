@@ -103,6 +103,22 @@ def test_surface():
     asserts_basic_code_specific(archive, system_type="2D")
 
 
+def test_nanotube():
+    """Tests that nanotube calculations are parsed correctly.
+    """
+    # Nanotube SCF
+    filepath = "./nanotube/scf/test_nano07_3.out"
+    archive = parse(filepath)
+    asserts_basic(archive)
+    asserts_basic_code_specific(archive)
+
+    # Nanotube geo opt
+    filepath = "./nanotube/geo_opt/test_nano05.out"
+    archive = parse(filepath)
+    asserts_basic(archive)
+    asserts_basic_code_specific(archive)
+
+
 def test_single_point_dft():
     """Tests that single point DFT calculations are parsed succesfully.
     """
@@ -344,4 +360,5 @@ if __name__ == "__main__":
     test_xc_functionals()
     test_molecule()
     test_surface()
+    test_nanotube()
     test_misc()
