@@ -382,10 +382,8 @@ class CrystalParser(FairdiParser):
                         Quantity(
                             'segments',
                             fr' (LINE\s+{integer} \( {flt} {flt} {flt}: {flt} {flt} {flt}\) IN TERMS OF PRIMITIVE LATTICE VECTORS{br}' +
-                            fr'\s+{integer} POINTS - SHRINKING_FACTOR {integer}{br}' +
-                            fr' CARTESIAN COORD\.\s+\( {flt} {flt} {flt}\):\( {flt} {flt} {flt}\) STEP\s+{flt}{br}{br}{br}' +
-                            fr'(?:\s+{integer}\([\d/\s]+?\){br}' +
-                            fr'(?:\s*{flt})+{br}{br})+)',
+                            fr'\s+{integer} POINTS - SHRINKING_FACTOR\s*{integer}{br}' +
+                            fr' CARTESIAN COORD\.\s+\( {flt} {flt} {flt}\):\( {flt} {flt} {flt}\) STEP\s+{flt}{br}{br}{br})',
                             sub_parser=TextParser(quantities=[
                                 Quantity(
                                     'start_end',
@@ -401,15 +399,8 @@ class CrystalParser(FairdiParser):
                                 ),
                                 Quantity(
                                     'shrinking_factor',
-                                    fr'SHRINKING_FACTOR {integer_c}{br}',
+                                    fr'SHRINKING_FACTOR\s*{integer_c}{br}',
                                     repeats=False,
-                                ),
-                                Quantity(
-                                    'intervals',
-                                    fr'\s+{integer}\(\s*([\d/\s]+?)\){br}' +
-                                    fr'(?:\s*{flt})+{br}{br}',
-                                    str_operation=lambda x: x,
-                                    repeats=True,
                                 ),
                             ]),
                             repeats=True,
@@ -779,7 +770,6 @@ class CrystalParser(FairdiParser):
                 section_segment = section_k_band_segment()
                 start_end = segment["start_end"]
                 shrinking_factor = segment["shrinking_factor"]
-                intervals = segment["intervals"]
                 n_steps = segment["n_steps"]
                 section_segment.band_k_points = k_points[i_seg]
                 section_segment.band_segm_start_end = start_end

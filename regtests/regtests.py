@@ -141,8 +141,9 @@ def test_geo_opt():
 
 
 def test_band_structure():
-    """Tests that band structure calculation is parsed correctly. Especially parsing the
+    """Tests that band structure calculation is parsed correctly.
     """
+    # Regular band structure with .f25 file
     filepath = "./band_structure/nacl_hf/NaCl.out"
     archive = parse(filepath)
     asserts_basic(archive, method_type="HF")
@@ -152,13 +153,20 @@ def test_band_structure():
     method = run.section_method[0]
     assert method.XC_functional == "1.0*HF_X"
 
+    # This band structure is missing the f25 file so no output should be
+    # generated for band structure. The functional should still be possible to
+    # read.
+    filepath = "./band_structure/no_f25_1/test04_dft.out"
+    archive = parse(filepath)
+    asserts_basic(archive)
+    asserts_basic_code_specific(archive, run_type="band_structure")
+    run = archive.section_run[0]
+    method = run.section_method[0]
+    assert method.XC_functional == "1.0*HYB_GGA_XC_B3LYP"
 
-def test_band_structure_missing():
-    """This band structure is missing the f25 file so not output should be
-    generated for band structure. The functional should still be possible to
-    read.
-    """
-    filepath = "./band_structure/tis2_dft/TiS2_band_structure.prop.o"
+    # Another band structure with missing f25 file with different number of
+    # spaces used in the output.
+    filepath = "./band_structure/no_f25_2/TiS2_band_structure.prop.o"
     archive = parse(filepath)
     asserts_basic(archive)
     asserts_basic_code_specific(archive, run_type="band_structure")
@@ -332,7 +340,6 @@ if __name__ == "__main__":
     test_single_point_hf()
     test_geo_opt()
     test_band_structure()
-    test_band_structure_missing()
     test_dos()
     test_xc_functionals()
     test_molecule()
