@@ -16,6 +16,12 @@ to an entry, even if the respective parser/code might not directly support it.
 For CRYSTAL please provide at least the files from this table if applicable to your
 calculations (remember that you can provide more files if you want):
 
+|Input Filename| Description|
+|--- | --- |
+|`<text_file>` | **Mainfile**, plain text file w/arbitrary name. E.g.,  `simulation.out` |
+|`<text_file>.d12` | Program input. Plain text file with the same name (different extension) as the mainfile. E.g. `simulation.d12` |
+|AUX FILES| Description|
+|`<text_file>.f25`| Output of various electronic and electrical properties. Plain text file with the same name (different extension) as the mainfile. **NOTE**: required in order to parse band structures and density of states. E.g. `simulation.f25` |
 
 
 To create an upload with all calculations in a directory structure:
@@ -62,7 +68,15 @@ python_dict = section_run.m_to_dict()
 
 ## Developing the parser
 
-Also install NOMAD's pypi package:
+Create a virtual environment to install the parser in development mode:
+
+```
+pip install virtualenv
+virtualenv -p `which python3` .pyenv
+source .pyenv/bin/activate
+```
+
+Install NOMAD's pypi package:
 
 ```
 pip install nomad-lab
@@ -71,10 +85,8 @@ pip install nomad-lab
 Clone the parser project and install it in development mode:
 
 ```
-git clone https://gitlab.mpcdf.mpg.de/nomad-lab/parser-crystal parser-crystal
-pip install -e parser-crystal
+git clone https://github.com/nomad-coe/nomad-parser-crystal.git nomad-parser-crystal
+pip install -e nomad-parser-crystal
 ```
 
 Running the parser now, will use the parser's Python code from the clone project.
-
-
