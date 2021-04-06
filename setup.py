@@ -23,12 +23,12 @@ from setuptools import setup, find_packages
 def main():
     setup(
         name="crystalparser",
-        version="0.1",
+        version="1.0",
         description="NOMAD parser implementation for Crystal.",
-        author="Lauri Himanen",
-        author_email="lauri.himanen@aalto.fi",
+        author='The NOMAD Authors',
         license="APACHE 2.0",
-        packages=find_packages(),
+        packages=find_packages(exclude=['tests']),
+        install_requires=['nomad-lab'])
     )
 
 
