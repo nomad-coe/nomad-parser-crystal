@@ -361,17 +361,3 @@ def asserts_dos(archive, method_type="DFT", system_type="3D", vdw=None, forces=F
             assert dos.dos_energies.shape == (dos.number_of_dos_values,)
             assert dos.dos_values.shape == (1, dos.number_of_dos_values)
     assert dos_found
-
-
-if __name__ == "__main__":
-    test_single_point_forces()
-    test_single_point_dft()
-    test_single_point_hf()
-    test_geo_opt()
-    test_band_structure()
-    test_dos()
-    test_xc_functionals()
-    test_molecule()
-    test_surface()
-    test_nanotube()
-    test_misc()
