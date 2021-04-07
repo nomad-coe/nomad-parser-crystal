@@ -19,7 +19,6 @@
 import re
 import os
 import textwrap
-import logging
 import datetime
 
 import ase
@@ -29,27 +28,36 @@ from nomad.units import ureg
 from nomad import atomutils
 from nomad.parsing.parser import FairdiParser
 from nomad.parsing.file_parser import TextParser, Quantity
-from nomad.datamodel.metainfo.public import section_run, section_method, section_system,\
-    section_XC_functionals, section_scf_iteration, section_single_configuration_calculation,\
-    section_sampling_method, section_frame_sequence, section_eigenvalues, section_dos,\
-    section_atom_projected_dos, section_species_projected_dos, section_k_band,\
-    section_k_band_segment, section_energy_van_der_Waals, section_calculation_to_calculation_refs,\
-    section_method_to_method_refs, section_basis_set_atom_centered
+from nomad.datamodel.metainfo.public import (
+    section_run,
+    section_method,
+    section_system,
+    section_XC_functionals,
+    section_scf_iteration,
+    section_single_configuration_calculation,
+    section_sampling_method,
+    section_frame_sequence,
+    section_dos,
+    section_k_band,
+    section_k_band_segment,
+    section_basis_set_atom_centered
+)
 from crystalparser.metainfo.crystal import x_crystal_section_shell
 
 
 def capture(regex):
     return r'(' + regex + r')'
 
-flt = r'-?(?:\d+\.?\d*|\d*\.?\d+)(?:E[\+-]?\d+)?' # Floating point number
-flt_c = capture(flt)                              # Captures a floating point number
-flt_crystal_c = r'(-?\d+(?:.\d+)?\*\*-?.*\d+)'    # Crystal specific floating point syntax
-ws = r'\s+'                                       # Series of white-space characters
-integer = r'-?\d+'                                # Integer number
-integer_c = capture(integer)                      # Captures integer number
-word = r'[a-zA-Z]+'                               # A single alphanumeric word
-word_c = capture(word)                            # Captures a single alphanumeric word
-br = r'\r?\n'                                     # Newline that works for both Windows and Unix. Crystal can be run on a Windows machine as well.
+
+flt = r'-?(?:\d+\.?\d*|\d*\.?\d+)(?:E[\+-]?\d+)?'  # Floating point number
+flt_c = capture(flt)                               # Captures a floating point number
+flt_crystal_c = r'(-?\d+(?:.\d+)?\*\*-?.*\d+)'     # Crystal specific floating point syntax
+ws = r'\s+'                                        # Series of white-space characters
+integer = r'-?\d+'                                 # Integer number
+integer_c = capture(integer)                       # Captures integer number
+word = r'[a-zA-Z]+'                                # A single alphanumeric word
+word_c = capture(word)                             # Captures a single alphanumeric word
+br = r'\r?\n'                                      # Newline that works for both Windows and Unix. Crystal can be run on a Windows machine as well.
 
 
 class CrystalParser(FairdiParser):
@@ -152,8 +160,8 @@ class CrystalParser(FairdiParser):
                 Quantity("dimensionality", fr' GEOMETRY FOR WAVE FUNCTION - DIMENSIONALITY OF THE SYSTEM\s+(\d)', repeats=False),
                 Quantity(
                     'lattice_parameters',
-                    fr' (?:PRIMITIVE CELL - CENTRING CODE\s*[\s\S]*?\s*VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3{br}|PRIMITIVE CELL{br})' +
-                    fr'         A              B              C           ALPHA      BETA       GAMMA\s*' +
+                    fr' (?:PRIMITIVE CELL - CENTRING CODE\s*[\s\S]*?\s*VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3{br}|PRIMITIVE CELL{br})' +\
+                    fr'         A              B              C           ALPHA      BETA       GAMMA\s*' +\
                     fr'{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}',
                     shape=(6),
                     dtype=np.float64,
@@ -161,9 +169,9 @@ class CrystalParser(FairdiParser):
                 ),
                 Quantity(
                     "labels_positions",
-                    fr' ATOMS IN THE ASYMMETRIC UNIT\s+{integer} - ATOMS IN THE UNIT CELL:\s+{integer}{br}' +
-                    fr'\s+ATOM\s+X(?:/A|\(ANGSTROM\))\s+Y(?:/B|\(ANGSTROM\))\s+Z(?:/C|\(ANGSTROM\))\s*{br}' +
-                    re.escape(' *******************************************************************************') +
+                    fr' ATOMS IN THE ASYMMETRIC UNIT\s+{integer} - ATOMS IN THE UNIT CELL:\s+{integer}{br}' +\
+                    fr'\s+ATOM\s+X(?:/A|\(ANGSTROM\))\s+Y(?:/B|\(ANGSTROM\))\s+Z(?:/C|\(ANGSTROM\))\s*{br}' +\
+                    re.escape(' *******************************************************************************') +\
                     fr'((?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}{br})+)',
                     shape=(-1, 7),
                     dtype=str,
@@ -174,18 +182,18 @@ class CrystalParser(FairdiParser):
                 # substitutions, supercells, deformations etc. in any order.
                 Quantity(
                     'system_edited',
-                    fr' \*\s+GEOMETRY EDITING[\S\s]*?' +
-                    re.escape(' *******************************************************************************') + fr'{br}' +
-                    fr' LATTICE PARAMETERS \(ANGSTROMS AND DEGREES\) - BOHR =\s*0?\.\d+ ANGSTROM{br}' +
-                    fr' (?:PRIMITIVE CELL - CENTRING CODE [\s\S]*?VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3|PRIMITIVE CELL){br}' +
-                    fr'\s+A\s+B\s+C\s+ALPHA\s+BETA\s+GAMMA\s*{br}' +
-                    fr'(\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}{br}' +
-                    re.escape(' *******************************************************************************') + fr'{br}' +
-                    fr' ATOMS IN THE ASYMMETRIC UNIT\s+{integer} - ATOMS IN THE UNIT CELL:\s+{integer}{br}' +
-                    fr'\s+ATOM\s+X(?:/A|\(ANGSTROM\))\s+Y(?:/B|\(ANGSTROM\))\s+Z(?:/C|\(ANGSTROM\))(?:\s+R\(ANGS\))?\s*{br}' +
-                    re.escape(' *******************************************************************************') +
-                    fr'(?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}(?:\s+{flt})?{br})+)' +
-                    fr'{br}' +
+                    fr' \*\s+GEOMETRY EDITING[\S\s]*?' +\
+                    re.escape(' *******************************************************************************') + fr'{br}' +\
+                    fr' LATTICE PARAMETERS \(ANGSTROMS AND DEGREES\) - BOHR =\s*0?\.\d+ ANGSTROM{br}' +\
+                    fr' (?:PRIMITIVE CELL - CENTRING CODE [\s\S]*?VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3|PRIMITIVE CELL){br}' +\
+                    fr'\s+A\s+B\s+C\s+ALPHA\s+BETA\s+GAMMA\s*{br}' +\
+                    fr'(\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}{br}' +\
+                    re.escape(' *******************************************************************************') + fr'{br}' +\
+                    fr' ATOMS IN THE ASYMMETRIC UNIT\s+{integer} - ATOMS IN THE UNIT CELL:\s+{integer}{br}' +\
+                    fr'\s+ATOM\s+X(?:/A|\(ANGSTROM\))\s+Y(?:/B|\(ANGSTROM\))\s+Z(?:/C|\(ANGSTROM\))(?:\s+R\(ANGS\))?\s*{br}' +\
+                    re.escape(' *******************************************************************************') +\
+                    fr'(?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}(?:\s+{flt})?{br})+)' +\
+                    fr'{br}' +\
                     fr' T = ATOM BELONGING TO THE ASYMMETRIC UNIT',
                     sub_parser=TextParser(quantities=[
                         Quantity(
@@ -197,8 +205,8 @@ class CrystalParser(FairdiParser):
                         ),
                         Quantity(
                             "labels_positions",
-                            fr'\s+ATOM\s+X(?:/A|\(ANGSTROM\))\s+Y(?:/B|\(ANGSTROM\))\s+Z(?:/C|\(ANGSTROM\))\s*{br}' +
-                            re.escape(' *******************************************************************************') +
+                            fr'\s+ATOM\s+X(?:/A|\(ANGSTROM\))\s+Y(?:/B|\(ANGSTROM\))\s+Z(?:/C|\(ANGSTROM\))\s*{br}' +\
+                            re.escape(' *******************************************************************************') +\
                             fr'((?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}{br})+)',
                             shape=(-1, 7),
                             dtype=str,
@@ -206,8 +214,8 @@ class CrystalParser(FairdiParser):
                         ),
                         Quantity(
                             "labels_positions_nanotube",
-                            fr'\s+ATOM\s+X/A\s+Y\(ANGSTROM\)\s+Z\(ANGSTROM\)\s+R\(ANGS\)\s*{br}' +
-                            re.escape(' *******************************************************************************') +
+                            fr'\s+ATOM\s+X/A\s+Y\(ANGSTROM\)\s+Z\(ANGSTROM\)\s+R\(ANGS\)\s*{br}' +\
+                            re.escape(' *******************************************************************************') +\
                             fr'((?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}\s+{flt}{br})+)',
                             shape=(-1, 8),
                             dtype=str,
@@ -219,9 +227,9 @@ class CrystalParser(FairdiParser):
 
                 Quantity(
                     'lattice_vectors_restart',
-                    fr' DIRECT LATTICE VECTOR COMPONENTS \(ANGSTROM\){br}' +
-                    fr'\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}' +
-                    fr'\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}' +
+                    fr' DIRECT LATTICE VECTOR COMPONENTS \(ANGSTROM\){br}' +\
+                    fr'\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}' +\
+                    fr'\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}' +\
                     fr'\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}',
                     shape=(3, 3),
                     dtype=np.float64,
@@ -229,8 +237,8 @@ class CrystalParser(FairdiParser):
                 ),
                 Quantity(
                     "labels_positions_restart",
-                    fr'   ATOM N\.AT\.  SHELL    X\(A\)      Y\(A\)      Z\(A\)      EXAD       N\.ELECT\.{br}' +
-                    re.escape(' *******************************************************************************') +
+                    fr'   ATOM N\.AT\.  SHELL    X\(A\)      Y\(A\)      Z\(A\)      EXAD       N\.ELECT\.{br}' +\
+                    re.escape(' *******************************************************************************') +\
                     fr'((?:\s+{integer}\s+{integer}\s+{word}\s+{integer}\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}{br})+)',
                     shape=(-1, 9),
                     dtype=str,
@@ -241,10 +249,10 @@ class CrystalParser(FairdiParser):
                 # Method
                 Quantity(
                     'basis_set',
-                    re.escape(r' *******************************************************************************') +
-                    fr'{br} LOCAL ATOMIC FUNCTIONS BASIS SET{br}' +
-                    re.escape(r' *******************************************************************************') +
-                    fr'{br}   ATOM   X\(AU\)   Y\(AU\)   Z\(AU\)  N. TYPE  EXPONENT  S COEF   P COEF   D/F/G COEF{br}' +
+                    re.escape(r' *******************************************************************************') +\
+                    fr'{br} LOCAL ATOMIC FUNCTIONS BASIS SET{br}' +\
+                    re.escape(r' *******************************************************************************') +\
+                    fr'{br}   ATOM   X\(AU\)   Y\(AU\)   Z\(AU\)  N. TYPE  EXPONENT  S COEF   P COEF   D/F/G COEF{br}' +\
                     fr'([\s\S]*?){br} INFORMATION',
                     sub_parser=TextParser(quantities=[
                         Quantity(
@@ -355,21 +363,21 @@ class CrystalParser(FairdiParser):
                 # Geometry optimization steps
                 Quantity(
                     "geo_opt",
-                    fr'( (?:COORDINATE AND CELL OPTIMIZATION|COORDINATE OPTIMIZATION) - POINT\s+1{br}' +
-                    r'[\s\S]*?' +
-                    re.escape(r' ******************************************************************') + fr'{br}' +
+                    fr'( (?:COORDINATE AND CELL OPTIMIZATION|COORDINATE OPTIMIZATION) - POINT\s+1{br}' +\
+                    r'[\s\S]*?' +\
+                    re.escape(r' ******************************************************************') + fr'{br}' +\
                     fr'\s*\* OPT END - CONVERGED \* E\(AU\)\:\s+{flt}\s+POINTS\s+{integer})\s+\*{br}',
                     sub_parser=TextParser(quantities=[
                         Quantity(
                             'geo_opt_step',
-                            fr' (?:COORDINATE AND CELL OPTIMIZATION|COORDINATE OPTIMIZATION) - POINT\s+{integer}{br}' +
-                            fr'([\s\S]*?)' +
+                            fr' (?:COORDINATE AND CELL OPTIMIZATION|COORDINATE OPTIMIZATION) - POINT\s+{integer}{br}' +\
+                            fr'([\s\S]*?)' +\
                             fr' (?:TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT OPTI|\* OPT END)',
                             sub_parser=TextParser(quantities=[
                                 Quantity(
                                     'lattice_parameters',
-                                    fr' (?:PRIMITIVE CELL - CENTRING CODE [\s\S]*?VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3{br}|PRIMITIVE CELL{br})' +
-                                    fr'         A              B              C           ALPHA      BETA       GAMMA\s*' +
+                                    fr' (?:PRIMITIVE CELL - CENTRING CODE [\s\S]*?VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3{br}|PRIMITIVE CELL{br})' +\
+                                    fr'         A              B              C           ALPHA      BETA       GAMMA\s*' +\
                                     fr'{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}',
                                     shape=(6),
                                     dtype=np.float64,
@@ -377,8 +385,8 @@ class CrystalParser(FairdiParser):
                                 ),
                                 Quantity(
                                     "labels_positions",
-                                    fr'\s+ATOM\s+X(?:/A|\(ANGSTROM\))\s+Y(?:/B|\(ANGSTROM\))\s+Z(?:/C|\(ANGSTROM\))\s*{br}' +
-                                    re.escape(' *******************************************************************************') +
+                                    fr'\s+ATOM\s+X(?:/A|\(ANGSTROM\))\s+Y(?:/B|\(ANGSTROM\))\s+Z(?:/C|\(ANGSTROM\))\s*{br}' +\
+                                    re.escape(' *******************************************************************************') +\
                                     fr'((?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}{br})+)',
                                     shape=(-1, 7),
                                     dtype=str,
@@ -386,8 +394,8 @@ class CrystalParser(FairdiParser):
                                 ),
                                 Quantity(
                                     "labels_positions_nanotube",
-                                    fr'\s+ATOM\s+X/A\s+Y\(ANGSTROM\)\s+Z\(ANGSTROM\)\s+R\(ANGS\)\s*{br}' +
-                                    re.escape(' *******************************************************************************') +
+                                    fr'\s+ATOM\s+X/A\s+Y\(ANGSTROM\)\s+Z\(ANGSTROM\)\s+R\(ANGS\)\s*{br}' +\
+                                    re.escape(' *******************************************************************************') +\
                                     fr'((?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}\s+{flt}{br})+)',
                                     shape=(-1, 8),
                                     dtype=str,
@@ -405,21 +413,21 @@ class CrystalParser(FairdiParser):
                 # Band structure
                 Quantity(
                     "band_structure",
-                    re.escape(fr' *******************************************************************************') + fr'{br}' +
-                    fr' \*                                                                             \*{br}' +
-                    fr' \*  BAND STRUCTURE                                                             \*{br}' +
-                    fr'[\s\S]*?' +
-                    fr' \*  FROM BAND\s+{integer} TO BAND\s+{integer}\s+\*{br}' +
-                    fr' \*  TOTAL OF\s+{integer} K-POINTS ALONG THE PATH\s+\*{br}' +
-                    fr' \*                                                                             \*{br}' +
-                    re.escape(r' *******************************************************************************') + fr'{br}' +
-                    fr'([\s\S]*?' +
+                    re.escape(fr' *******************************************************************************') + fr'{br}' +\
+                    fr' \*                                                                             \*{br}' +\
+                    fr' \*  BAND STRUCTURE                                                             \*{br}' +\
+                    fr'[\s\S]*?' +\
+                    fr' \*  FROM BAND\s+{integer} TO BAND\s+{integer}\s+\*{br}' +\
+                    fr' \*  TOTAL OF\s+{integer} K-POINTS ALONG THE PATH\s+\*{br}' +\
+                    fr' \*                                                                             \*{br}' +\
+                    re.escape(r' *******************************************************************************') + fr'{br}' +\
+                    fr'([\s\S]*?' +\
                     fr' ENERGY RANGE \(A\.U\.\)\s*{flt} - \s*{flt} EFERMI\s*{flt_c}{br})',
                     sub_parser=TextParser(quantities=[
                         Quantity(
                             'segments',
-                            fr' (LINE\s+{integer} \( {flt} {flt} {flt}: {flt} {flt} {flt}\) IN TERMS OF PRIMITIVE LATTICE VECTORS{br}' +
-                            fr'\s+{integer} POINTS - SHRINKING_FACTOR\s*{integer}{br}' +
+                            fr' (LINE\s+{integer} \( {flt} {flt} {flt}: {flt} {flt} {flt}\) IN TERMS OF PRIMITIVE LATTICE VECTORS{br}' +\
+                            fr'\s+{integer} POINTS - SHRINKING_FACTOR\s*{integer}{br}' +\
                             fr' CARTESIAN COORD\.\s+\( {flt} {flt} {flt}\):\( {flt} {flt} {flt}\) STEP\s+{flt}{br}{br}{br})',
                             sub_parser=TextParser(quantities=[
                                 Quantity(
@@ -450,10 +458,10 @@ class CrystalParser(FairdiParser):
                 # DOS
                 Quantity(
                     'dos',
-                    fr' RESTART WITH NEW K POINTS NET{br}' +
-                    fr'([\s\S]+?' +
-                    fr' TOTAL AND PROJECTED DENSITY OF STATES - FOURIER LEGENDRE METHOD{br}' +
-                    fr'[\s\S]+?)' +
+                    fr' RESTART WITH NEW K POINTS NET{br}' +\
+                    fr'([\s\S]+?' +\
+                    fr' TOTAL AND PROJECTED DENSITY OF STATES - FOURIER LEGENDRE METHOD{br}' +\
+                    fr'[\s\S]+?)' +\
                     fr' TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT DOSS        TELAPSE',
                     sub_parser=TextParser(quantities=[
                         Quantity(
@@ -482,7 +490,7 @@ class CrystalParser(FairdiParser):
                 Quantity(
                     'forces',
                     fr' CARTESIAN FORCES IN HARTREE/BOHR \(ANALYTICAL\){br}'
-                    fr'   ATOM                     X                   Y                   Z{br}' +
+                    fr'   ATOM                     X                   Y                   Z{br}' +\
                     fr'((?:' + ws + integer + ws + integer + ws + flt + ws + flt + ws + flt + fr'{br})*)',
                     shape=(-1, 5),
                     dtype=str,
@@ -505,10 +513,11 @@ class CrystalParser(FairdiParser):
             filepath,
             quantities=[
                 # Band structure energies
-                Quantity("segments",
-                    fr'(-\%-0BAND\s*{integer}\s*{integer}\s?{flt}\s?{flt}\s?{flt}{br}' +
-                    fr'\s*{flt}\s*{flt}{br}' +
-                    fr'\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}{br}' +
+                Quantity(
+                    'segments',
+                    fr'(-\%-0BAND\s*{integer}\s*{integer}\s?{flt}\s?{flt}\s?{flt}{br}' +\
+                    fr'\s*{flt}\s*{flt}{br}' +\
+                    fr'\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}{br}' +\
                     fr'(?:\s*{flt})+)',
                     sub_parser=TextParser(quantities=[
                         Quantity(
@@ -523,7 +532,7 @@ class CrystalParser(FairdiParser):
                         ),
                         Quantity(
                             'energies',
-                            fr'\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}{br}' +
+                            fr'\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}{br}' +\
                             fr'((?:{flt}\s?)+)',
                             str_operation=lambda x: x,
                             repeats=False,
@@ -532,10 +541,11 @@ class CrystalParser(FairdiParser):
                     repeats=True,
                 ),
                 # DOS values
-                Quantity("dos",
-                    fr'(-\%-0DOSS\s*{integer}\s*{integer}\s?{flt}\s?{flt}\s?{flt}{br}' +
-                    fr'\s*{flt}\s?{flt}{br}' +
-                    fr'\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}{br}' +
+                Quantity(
+                    "dos",
+                    fr'(-\%-0DOSS\s*{integer}\s*{integer}\s?{flt}\s?{flt}\s?{flt}{br}' +\
+                    fr'\s*{flt}\s?{flt}{br}' +\
+                    fr'\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}{br}' +\
                     fr'(?:\s*{flt})+)',
                     sub_parser=TextParser(quantities=[
                         Quantity(
@@ -550,7 +560,7 @@ class CrystalParser(FairdiParser):
                         ),
                         Quantity(
                             'values',
-                            fr'\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}{br}' +
+                            fr'\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}\s*{integer}{br}' +\
                             fr'((?:\s*{flt})+)',
                             str_operation=lambda x: x,
                             repeats=False,
@@ -566,7 +576,7 @@ class CrystalParser(FairdiParser):
     def parse(self, filepath, archive, logger):
         # Read files
         out = self.parse_output(filepath)
-        wrkdir, outfile = os.path.split(filepath)
+        wrkdir, _ = os.path.split(filepath)
         f25_filepath1 = out["f25_filepath1"]
         f25_filepath2 = out["f25_filepath2"]
         f25_filepath_original = f25_filepath1 if f25_filepath1 else f25_filepath2
@@ -605,9 +615,6 @@ class CrystalParser(FairdiParser):
         # depending on the run type.
         system = run.m_create(section_system)
         material_type = out["material_type"]
-        lattice_parameters_phonon = out["lattice_parameters_phonon"]
-        system_substitution = out["system_substitution"]
-        system_supercell = out["system_supercell"]
         system_edited = out["system_edited"]
         labels_positions = out["labels_positions"]
         lattice_vectors_restart = out["lattice_vectors_restart"]
@@ -795,7 +802,7 @@ class CrystalParser(FairdiParser):
             scc.energy_total = out["energy_total"]
         forces = out["forces"]
         if forces is not None:
-            scc.atom_forces = forces[:, 2:].astype(float) * ureg.hartree/ureg.bohr
+            scc.atom_forces = forces[:, 2:].astype(float) * ureg.hartree / ureg.bohr
         scc.single_configuration_calculation_to_system_ref = system
         scc.single_configuration_to_calculation_method_ref = method
 
@@ -804,14 +811,12 @@ class CrystalParser(FairdiParser):
         if band_structure is not None:
             section_band = section_k_band()
             section_band.band_structure_kind = "electronic"
-            section_band.reciprocal_cell = atomutils.reciprocal_cell(system.lattice_vectors.magnitude)*1/ureg.meter
+            section_band.reciprocal_cell = atomutils.reciprocal_cell(system.lattice_vectors.magnitude) * 1 / ureg.meter
             segments = band_structure["segments"]
             k_points = to_k_points(segments)
             for i_seg, segment in enumerate(segments):
                 section_segment = section_k_band_segment()
                 start_end = segment["start_end"]
-                shrinking_factor = segment["shrinking_factor"]
-                n_steps = segment["n_steps"]
                 section_segment.band_k_points = k_points[i_seg]
                 section_segment.band_segm_start_end = start_end
                 section_segment.number_of_k_points_per_segment = k_points[i_seg].shape[0]
@@ -966,10 +971,10 @@ def to_k_points(segments):
             n_steps = n_steps - 1
 
         delta = end - start
-        start_step = (shrinking_factor*start).astype(np.int)
-        step_size = (shrinking_factor*delta/n_steps).astype(np.int)
-        steps = (start_step + step_size* np.arange(0, end_idx)[:, None])
-        k_points = steps/shrinking_factor
+        start_step = (shrinking_factor * start).astype(np.int)
+        step_size = (shrinking_factor * delta / n_steps).astype(np.int)
+        steps = (start_step + step_size * np.arange(0, end_idx)[:, None])
+        k_points = steps / shrinking_factor
         all_k_points.append(k_points)
         prev_point = end
 
@@ -1171,6 +1176,7 @@ def to_libxc(exchange, correlation, exchange_correlation):
 
     return functionals
 
+
 def to_libxc_out(xc, hybridization):
     """Transforms the Crystal-specific XC naming in the output into a list of
     section_XC_functionals.
@@ -1214,13 +1220,13 @@ def to_libxc_out(xc, hybridization):
     if hybridization:
         section = section_XC_functionals()
         section.XC_functional_name = "HF_X"
-        section.XC_functional_weight = float(hybridization)/100
+        section.XC_functional_weight = float(hybridization) / 100
         functionals.append(section)
     for xc in xc_list:
         section = section_XC_functionals()
         weight = 1.0
         if hybridization and "_X_" in xc:
-            weight = 1.0 - float(hybridization)/100
+            weight = 1.0 - float(hybridization) / 100
         section.XC_functional_name = xc
         section.XC_functional_weight = weight
         functionals.append(section)
