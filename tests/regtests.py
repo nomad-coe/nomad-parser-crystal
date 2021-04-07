@@ -16,11 +16,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import pytest
 import numpy as np
 from crystalparser import CrystalParser
 from nomad.datamodel import EntryArchive
-from nomad.parsing.parsers import match_parser
 
 
 def test_misc():
@@ -282,10 +280,7 @@ def asserts_basic(archive, method_type="DFT", system_type="3D", vdw=None, forces
 
 def asserts_basic_code_specific(archive, method_type="DFT", system_type="3D", run_type="scf", vdw=None, forces=False):
     run = archive.section_run[0]
-    systems = run.section_system
     method = run.section_method[0]
-    sccs = run.section_single_configuration_calculation
-    n_atoms = len(systems[0].atom_species)
 
     assert run.program_name == "Crystal"
     assert run.program_basis_set_type == "gaussians"
