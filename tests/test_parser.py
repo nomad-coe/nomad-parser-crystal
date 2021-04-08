@@ -37,7 +37,7 @@ def test_misc():
     consideration.
     """
     # The atomic number is given in the NAT convention
-    filepath = "tests/misc/nat/HfS2_PBE0D3_ZD_fc3_supercell-00497.o"
+    filepath = "tests/data/misc/nat/HfS2_PBE0D3_ZD_fc3_supercell-00497.o"
     archive = parse(filepath)
     asserts_basic(archive)
     asserts_basic_code_specific(archive)
@@ -46,7 +46,7 @@ def test_misc():
 
     # Tests that ghost atoms are ignored in the system. Maybe they need their
     # own metainfo?
-    filepath = "tests/misc/ghosts/fevo46_sngt_ti_zero.cryst.out"
+    filepath = "tests/data/misc/ghosts/fevo46_sngt_ti_zero.cryst.out"
     archive = parse(filepath)
     asserts_basic(archive)
     asserts_basic_code_specific(archive)
@@ -54,7 +54,7 @@ def test_misc():
     assert set(system.atom_species) == set((8, 26, 22, 38))
 
     # Tests that substitutions are handled correctly
-    filepath = "tests/misc/substitution/neutral.cryst.out"
+    filepath = "tests/data/misc/substitution/neutral.cryst.out"
     archive = parse(filepath)
     asserts_basic(archive)
     asserts_basic_code_specific(archive)
@@ -62,13 +62,13 @@ def test_misc():
     assert set(system.atom_species) == set((8, 26, 22, 38))
 
     # Geometry optimization with constraints
-    filepath = "tests/misc/constraints/ionic1_fullspin_spinfx_2.cryst.out"
+    filepath = "tests/data/misc/constraints/ionic1_fullspin_spinfx_2.cryst.out"
     archive = parse(filepath)
     asserts_basic(archive)
     asserts_basic_code_specific(archive)
 
     # Displacement of atoms
-    filepath = "tests/misc/displacement/fe50_x8_l0_re.cryst.out"
+    filepath = "tests/data/misc/displacement/fe50_x8_l0_re.cryst.out"
     archive = parse(filepath)
     asserts_basic(archive)
     asserts_basic_code_specific(archive)
@@ -78,7 +78,7 @@ def test_xc_functionals():
     """Tests that different kinds of XC functionals are correctly identified.
     """
     # PBE
-    filepath = "tests/xc_functionals/pbe_1/supercell-00138.o"
+    filepath = "tests/data/xc_functionals/pbe_1/supercell-00138.o"
     archive = parse(filepath)
     asserts_basic(archive)
     asserts_basic_code_specific(archive)
@@ -86,7 +86,7 @@ def test_xc_functionals():
     assert method.XC_functional == "1.0*GGA_C_PBE+1.0*GGA_X_PBE"
 
     # PW91 Hybrid
-    filepath = "tests/xc_functionals/pw91_hybrid/f075_l3_ph.o"
+    filepath = "tests/data/xc_functionals/pw91_hybrid/f075_l3_ph.o"
     archive = parse(filepath)
     asserts_basic(archive)
     asserts_basic_code_specific(archive)
@@ -94,7 +94,7 @@ def test_xc_functionals():
     assert method.XC_functional == "1.0*GGA_C_PW91+0.9*GGA_X_PW91+0.1*HF_X"
 
     # WC1LYP
-    filepath = "tests/xc_functionals/wc1lyp/albite_freq_intens.out"
+    filepath = "tests/data/xc_functionals/wc1lyp/albite_freq_intens.out"
     archive = parse(filepath)
     asserts_basic(archive)
     asserts_basic_code_specific(archive)
@@ -102,7 +102,7 @@ def test_xc_functionals():
     assert method.XC_functional == "1.0*GGA_C_LYP+0.84*GGA_X_WC+0.16*HF_X"
 
     # PBE0
-    filepath = "tests/xc_functionals/pbe0/ZrS2_band_structure_dos.prop.o"
+    filepath = "tests/data/xc_functionals/pbe0/ZrS2_band_structure_dos.prop.o"
     archive = parse(filepath)
     asserts_basic(archive)
     asserts_basic_code_specific(archive)
@@ -113,7 +113,7 @@ def test_xc_functionals():
 def test_molecule():
     """Tests that molecular calculations are parsed correctly.
     """
-    filepath = "tests/molecule/w.out"
+    filepath = "tests/data/molecule/w.out"
     archive = parse(filepath)
     asserts_basic(archive, system_type="0D")
     asserts_basic_code_specific(archive, system_type="0D")
@@ -124,7 +124,7 @@ def test_molecule():
 def test_surface():
     """Tests that surface calculations are parsed correctly.
     """
-    filepath = "tests/surface/w221_sr_pbe0.cryst.out"
+    filepath = "tests/data/surface/w221_sr_pbe0.cryst.out"
     archive = parse(filepath)
     asserts_basic(archive, system_type="2D")
     asserts_basic_code_specific(archive, system_type="2D")
@@ -134,13 +134,13 @@ def test_nanotube():
     """Tests that nanotube calculations are parsed correctly.
     """
     # Nanotube SCF
-    filepath = "tests/nanotube/scf/test_nano07_3.out"
+    filepath = "tests/data/nanotube/scf/test_nano07_3.out"
     archive = parse(filepath)
     asserts_basic(archive)
     asserts_basic_code_specific(archive)
 
     # Nanotube geo opt
-    filepath = "tests/nanotube/geo_opt/test_nano05.out"
+    filepath = "tests/data/nanotube/geo_opt/test_nano05.out"
     archive = parse(filepath)
     asserts_basic(archive)
     asserts_basic_code_specific(archive)
@@ -149,7 +149,7 @@ def test_nanotube():
 def test_single_point_dft():
     """Tests that single point DFT calculations are parsed succesfully.
     """
-    filepath = "tests/single_point/dft/output.out"
+    filepath = "tests/data/single_point/dft/output.out"
     archive = parse(filepath)
     asserts_basic(archive)
     asserts_basic_code_specific(archive, vdw="DFT-D3", forces=True)
@@ -158,7 +158,7 @@ def test_single_point_dft():
 def test_single_point_hf():
     """Tests that single point HF calculations are parsed succesfully.
     """
-    filepath = "tests/single_point/hf/output.out"
+    filepath = "tests/data/single_point/hf/output.out"
     archive = parse(filepath)
     asserts_basic(archive, method_type="HF")
     asserts_basic_code_specific(archive, method_type="HF")
@@ -167,7 +167,7 @@ def test_single_point_hf():
 def test_single_point_forces():
     """Tests that forces are correctly parsed.
     """
-    filepath = "tests/single_point/forces/HfS2_PBE0D3_ZD_fc3_supercell-00001.o"
+    filepath = "tests/data/single_point/forces/HfS2_PBE0D3_ZD_fc3_supercell-00001.o"
     archive = parse(filepath)
     asserts_basic(archive, vdw="DFT-D3", forces=True)
     asserts_basic_code_specific(archive)
@@ -176,7 +176,7 @@ def test_single_point_forces():
 def test_geo_opt():
     """Tests that geometry optimization is parsed correctly.
     """
-    filepath = "tests/geo_opt/nio_tzvp_pbe0_opt.o"
+    filepath = "tests/data/geo_opt/nio_tzvp_pbe0_opt.o"
     archive = parse(filepath)
     asserts_basic(archive)
     asserts_basic_code_specific(archive, run_type="geo_opt")
@@ -187,7 +187,7 @@ def test_band_structure():
     """Tests that band structure calculation is parsed correctly.
     """
     # Regular band structure with .f25 file
-    filepath = "tests/band_structure/nacl_hf/NaCl.out"
+    filepath = "tests/data/band_structure/nacl_hf/NaCl.out"
     archive = parse(filepath)
     asserts_basic(archive, method_type="HF")
     asserts_basic_code_specific(archive, method_type="HF", run_type="band_structure")
@@ -199,7 +199,7 @@ def test_band_structure():
     # This band structure is missing the f25 file so no output should be
     # generated for band structure. The functional should still be possible to
     # read.
-    filepath = "tests/band_structure/no_f25_1/test04_dft.out"
+    filepath = "tests/data/band_structure/no_f25_1/test04_dft.out"
     archive = parse(filepath)
     asserts_basic(archive)
     asserts_basic_code_specific(archive, run_type="band_structure")
@@ -209,7 +209,7 @@ def test_band_structure():
 
     # Another band structure with missing f25 file with different number of
     # spaces used in the output.
-    filepath = "tests/band_structure/no_f25_2/TiS2_band_structure.prop.o"
+    filepath = "tests/data/band_structure/no_f25_2/TiS2_band_structure.prop.o"
     archive = parse(filepath)
     asserts_basic(archive)
     asserts_basic_code_specific(archive, run_type="band_structure")
@@ -221,7 +221,7 @@ def test_band_structure():
 def test_dos():
     """Tests that DOS is parsed successfully.
     """
-    filepath = "tests/dos/nacl_hf/NaCl.out"
+    filepath = "tests/data/dos/nacl_hf/NaCl.out"
     archive = parse(filepath)
     asserts_basic(archive)
     asserts_basic_code_specific(archive, run_type="dos")
