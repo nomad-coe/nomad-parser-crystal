@@ -28,4 +28,4 @@ jobs:
         python -m mypy --ignore-missing-imports --follow-imports=silent --no-strict-optional *parser tests
     - name: Test with pytest
       run: |
-        pytest -sv tests
+        python -m pytest -sv tests
