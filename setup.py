@@ -28,7 +28,7 @@ def main():
         author='The NOMAD Authors',
         license="APACHE 2.0",
         packages=find_packages(exclude=['tests']),
-        install_requires=['nomad-lab'])
+        install_requires=['nomad-lab']
     )
 
 
