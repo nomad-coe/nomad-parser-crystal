@@ -28,20 +28,18 @@ from nomad.units import ureg
 from nomad import atomutils
 from nomad.parsing.parser import FairdiParser
 from nomad.parsing.file_parser import TextParser, Quantity
-from nomad.datamodel.metainfo.public import (
-    section_run,
-    section_method,
-    section_system,
-    section_XC_functionals,
-    section_scf_iteration,
-    section_single_configuration_calculation,
-    section_sampling_method,
-    section_frame_sequence,
-    section_dos,
-    section_k_band,
-    section_k_band_segment,
-    section_basis_set_atom_centered
+from nomad.datamodel.metainfo.run.run import Run, Program, TimeRun
+from nomad.datamodel.metainfo.run.system import (
+    System, Atoms, SystemReference)
+from nomad.datamodel.metainfo.run.method import (
+    Method, BasisSet, Electronic, Scf, DFT, XCFunctional, Functional, BasisSetAtomCentered,
+    MethodReference
 )
+from nomad.datamodel.metainfo.run.calculation import (
+    Calculation, ScfIteration, Energy, EnergyEntry, Forces, ForcesEntry, BandStructure,
+    BandEnergies, Dos, DosValues
+)
+from nomad.datamodel.metainfo.workflow import Workflow, GeometryOptimization
 from crystalparser.metainfo.crystal import x_crystal_section_shell
 
 
@@ -588,10 +586,8 @@ class CrystalParser(FairdiParser):
                 f25 = self.parse_f25(f25_filepath)
 
         # Run
-        run = archive.m_create(section_run)
-        run.program_name = 'Crystal'
-        run.program_version = out["program_version"]
-        run.program_basis_set_type = 'gaussians'
+        run = archive.m_create(Run)
+        run.program = Program(name='Crystal', version=out["program_version"])
         run.x_crystal_datetime = out["datetime"]
         run.x_crystal_hostname = out["hostname"]
         run.x_crystal_user = out["user"]
@@ -608,12 +604,13 @@ class CrystalParser(FairdiParser):
         title = out["title"]
         if title is not None:
             run.x_crystal_run_title = title.strip()
-        run.time_run_date_start = to_unix_time(out["start_timestamp"])
-        run.time_run_date_end = to_unix_time(out["end_timestamp"])
+        run.time_run = TimeRun(
+            date_start=to_unix_time(out["start_timestamp"]),
+            date_end=to_unix_time(out["end_timestamp"]))
 
         # System. There are several alternative sources for this information
         # depending on the run type.
-        system = run.m_create(section_system)
+        system = run.m_create(System)
         material_type = out["material_type"]
         system_edited = out["system_edited"]
         labels_positions = out["labels_positions"]
@@ -662,11 +659,9 @@ class CrystalParser(FairdiParser):
             pos_type=pos_type,
         )
 
-        system.lattice_vectors = lattice_vectors
-        system.configuration_periodic_dimensions = pbc
-        system.atom_positions = cart_pos
-        system.atom_species = atomic_numbers
-        system.atom_labels = atom_labels
+        system.atoms = Atoms(
+            lattice_vectors=lattice_vectors, periodic=pbc, positions=cart_pos,
+            species=atomic_numbers, labels=atom_labels)
         dimensionality = out["dimensionality"]
         system.x_crystal_dimensionality = dimensionality
         crystal_family = out["crystal_family"]
@@ -679,20 +674,35 @@ class CrystalParser(FairdiParser):
         system.x_crystal_space_group = space_group
 
         # Method
-        method = run.m_create(section_method)
-        method.electronic_structure_method = 'DFT'
-        method.scf_max_iteration = out["scf_max_iteration"]
-        method.scf_threshold_energy_change = out["scf_threshold_energy_change"]
+        method = run.m_create(Method)
+        method.basis_set.append(BasisSet(type='gaussians'))
+
+        method.electronic = Electronic(method='DFT')
+        method.scf = Scf(
+            n_max_iteration=out["scf_max_iteration"],
+            threshold_energy_change=out["scf_threshold_energy_change"])
         dftd3 = out["dftd3"]
         if dftd3:
             if dftd3["version"] == "VERSION 2":
-                method.van_der_Waals_method = "G06"
+                method.electronic.van_der_waals_method = "G06"
             else:
-                method.van_der_Waals_method = "DFT-D3"
+                method.electronic.van_der_waals_method = "DFT-D3"
         if out["grimme"]:
-            method.van_der_Waals_method = "G06"
+            method.electronic.van_der_waals_method = "G06"
+
+        def add_functionals(functionals):
+            for functional in functionals:
+                if "_X_" in functional.name:
+                    method.dft.xc_functional.exchange.append(functional)
+                elif "_C_" in functional.name:
+                    method.dft.xc_functional.correlation.append(functional)
+                elif "_XC_" in functional.name or "HYB" in functional.name:
+                    method.dft.xc_functional.hybrid.append(functional)
+                else:
+                    method.dft.xc_functional.contributions.append(functional)
 
         # Try to primarily read the methodology from input
+        method.dft = DFT(xc_functional=XCFunctional())
         dft = out["dft"]
         if dft:
             exchange = dft["exchange"]
@@ -700,26 +710,23 @@ class CrystalParser(FairdiParser):
             exchange_correlation = dft["exchange_correlation"]
             functionals = to_libxc(exchange, correlation, exchange_correlation)
             if functionals:
-                for xc in functionals:
-                    method.m_add_sub_section(section_method.section_XC_functionals, xc)
-                method.XC_functional = to_libxc_name(functionals)
+                add_functionals(functionals)
+                method.dft.xc_functional.name = to_libxc_name(functionals)
+
         # If methodology not reported in input, try to read from output
         if dft is None or not functionals:
             hamiltonian_type = out["hamiltonian_type"]
             if hamiltonian_type == "HARTREE-FOCK HAMILTONIAN":
-                xc = section_XC_functionals()
-                xc.XC_functional_name = "HF_X"
-                xc.XC_functional_weight = 1.0
-                method.m_add_sub_section(section_method.section_XC_functionals, xc)
-                method.XC_functional = to_libxc_name([xc])
+                xc = Functional(name="HF_X", weight=1.0)
+                method.dft.xc_functional.exchange.append(xc)
+                method.dft.xc_functional.name = to_libxc_name([xc])
             elif hamiltonian_type == "KOHN-SHAM HAMILTONIAN":
                 xc_output = out["xc_out"]
                 hybrid = out["hybrid_out"]
                 functionals = to_libxc_out(xc_output, hybrid)
                 if functionals:
-                    for xc in functionals:
-                        method.m_add_sub_section(section_method.section_XC_functionals, xc)
-                    method.XC_functional = to_libxc_name(functionals)
+                    add_functionals(functionals)
+                    method.dft.xc_functional.name = to_libxc_name(functionals)
 
         method.x_crystal_fock_ks_matrix_mixing = out["fock_ks_matrix_mixing"]
         method.x_crystal_coulomb_bipolar_buffer = out["coulomb_bipolar_buffer"]
@@ -759,30 +766,29 @@ class CrystalParser(FairdiParser):
                 atomic_number = label_to_atomic_number(bs["species"][1])
                 shells = bs["shells"]
                 if atomic_number != covered_species and shells is not None:
-                    section_basis_set = section_basis_set_atom_centered()
-                    section_basis_set.basis_set_atom_number = atomic_number
-                    run.m_add_sub_section(section_run.section_basis_set_atom_centered, section_basis_set)
+                    section_basis_set = method.basis_set[-1].m_create(BasisSetAtomCentered)
+                    section_basis_set.atom_number = atomic_number
                     covered_species.add(atomic_number)
                     for shell in shells:
-                        section_shell = x_crystal_section_shell()
+                        section_shell = section_basis_set.m_create(x_crystal_section_shell)
                         section_shell.x_crystal_shell_range = str(shell["shell_range"])
                         section_shell.x_crystal_shell_type = shell["shell_type"]
                         section_shell.x_crystal_shell_coefficients = np.array(shell["shell_coefficients"])
-                        section_basis_set.m_add_sub_section(section_basis_set_atom_centered.x_crystal_section_shell, section_shell)
 
         # SCC
-        scc = run.m_create(section_single_configuration_calculation)
+        scc = run.m_create(Calculation)
         scf_block = out["scf_block"]
         if scf_block is not None:
             number_of_scf_iterations = out["number_of_scf_iterations"]
-            scc.single_configuration_calculation_converged = number_of_scf_iterations is not None
+            scc.calculation_converged = number_of_scf_iterations is not None
             for scf in scf_block["scf_iterations"]:
                 energies = scf["energies"]
-                section_scf = section_scf_iteration()
-                section_scf.energy_total_scf_iteration = energies[0]
-                section_scf.energy_change_scf_iteration = energies[1]
+                section_scf = scc.m_create(ScfIteration)
+                section_scf.energy = Energy()
+                section_scf.energy.total = EnergyEntry(value=energies[0])
+                section_scf.energy.change = energies[1]
                 energy_kinetic = scf["energy_kinetic"]
-                section_scf.electronic_kinetic_energy_scf_iteration = energy_kinetic
+                section_scf.energy.electronic_kinetic = EnergyEntry(value=energy_kinetic)
                 energy_ee = scf["energy_ee"]
                 section_scf.x_crystal_scf_energy_ee = energy_ee
                 energy_en_ne = scf["energy_en_ne"]
@@ -791,36 +797,32 @@ class CrystalParser(FairdiParser):
                 section_scf.x_crystal_scf_energy_nn = energy_nn
                 virial_coefficient = scf["virial_coefficient"]
                 section_scf.x_crystal_scf_virial_coefficient = virial_coefficient
-                scc.m_add_sub_section(section_single_configuration_calculation.section_scf_iteration, section_scf)
-            scc.number_of_scf_iterations = len(scc.section_scf_iteration)
+            scc.n_scf_iterations = len(scc.scf_iteration)
 
         if out["energy_total"] is not None:
             # If the final energy is found, replace the final SCF step energy
             # with it, as it is more accurate.
-            if scc.section_scf_iteration:
-                scc.section_scf_iteration[-1].energy_total_scf_iteration = out["energy_total"]
-            scc.energy_total = out["energy_total"]
+            if scc.scf_iteration:
+                scc.scf_iteration[-1].energy.total = EnergyEntry(value=out["energy_total"])
+            scc.energy = Energy(total=EnergyEntry(value=out["energy_total"]))
         forces = out["forces"]
         if forces is not None:
-            scc.atom_forces = forces[:, 2:].astype(float) * ureg.hartree / ureg.bohr
-        scc.single_configuration_calculation_to_system_ref = system
-        scc.single_configuration_to_calculation_method_ref = method
+            scc.forces = Forces(total=ForcesEntry(value=forces[:, 2:].astype(float) * ureg.hartree / ureg.bohr))
+        scc.system_ref.append(SystemReference(value=system))
+        scc.method_ref.append(MethodReference(value=method))
 
         # Band structure
         band_structure = out["band_structure"]
         if band_structure is not None:
-            section_band = section_k_band()
-            section_band.band_structure_kind = "electronic"
-            section_band.reciprocal_cell = atomutils.reciprocal_cell(system.lattice_vectors.magnitude) * 1 / ureg.meter
+            section_band = scc.m_create(BandStructure, Calculation.band_structure_electronic)
+            section_band.reciprocal_cell = atomutils.reciprocal_cell(system.atoms.lattice_vectors.magnitude) * 1 / ureg.meter
             segments = band_structure["segments"]
             k_points = to_k_points(segments)
             for i_seg, segment in enumerate(segments):
-                section_segment = section_k_band_segment()
-                start_end = segment["start_end"]
-                section_segment.band_k_points = k_points[i_seg]
-                section_segment.band_segm_start_end = start_end
-                section_segment.number_of_k_points_per_segment = k_points[i_seg].shape[0]
-                section_band.m_add_sub_section(section_k_band.section_k_band_segment, section_segment)
+                section_segment = section_band.m_create(BandEnergies)
+                _ = segment["start_end"]
+                section_segment.kpoints = k_points[i_seg]
+                section_segment.n_kpoints = k_points[i_seg].shape[0]
 
             # Read energies from the f25-file. If the file is not found, the
             # band structure is not written in the archive. The meaning of the
@@ -831,7 +833,9 @@ class CrystalParser(FairdiParser):
                 prev_k_point = None
                 first_row = segments[0]["first_row"]
                 fermi_energy = first_row[4]
-                scc.energy_reference_fermi = np.array([fermi_energy]) * ureg.hartree
+                if scc.energy is None:
+                    scc.energy = Energy()
+                scc.energy.fermi = fermi_energy * ureg.hartree
                 for i_seg, segment in enumerate(segments):
                     first_row = segment["first_row"]
                     cols = int(first_row[0])
@@ -843,14 +847,13 @@ class CrystalParser(FairdiParser):
                     # re-report the energy. This way segments get the same
                     # treatment in the metainfo whether they are continuous
                     # or not.
-                    start_k_point = section_band.section_k_band_segment[i_seg].band_k_points[0]
-                    end_k_point = section_band.section_k_band_segment[i_seg].band_k_points[-1]
+                    start_k_point = section_band.segment[i_seg].kpoints[0]
+                    end_k_point = section_band.segment[i_seg].kpoints[-1]
                     if prev_k_point is not None and np.allclose(prev_k_point, start_k_point):
                         energies = np.concatenate(([prev_energy], energies), axis=0)
-                    section_band.section_k_band_segment[i_seg].band_energies = energies[None, :] * ureg.hartree
+                    section_band.segment[i_seg].energies = energies[None, :] * ureg.hartree
                     prev_energy = energies[-1]
                     prev_k_point = end_k_point
-                scc.m_add_sub_section(section_single_configuration_calculation.section_k_band, section_band)
 
         # DOS
         dos = out["dos"]
@@ -861,53 +864,50 @@ class CrystalParser(FairdiParser):
             if f25 is not None:
                 dos_f25 = f25["dos"]
                 if dos_f25 is not None:
-                    scc_dos = section_single_configuration_calculation()
-                    scc_dos.single_configuration_calculation_to_system_ref = system
-                    scc_dos.single_configuration_to_calculation_method_ref = method
-                    sec_dos = section_dos()
+                    scc_dos = run.m_create(Calculation)
+                    scc_dos.system_ref.append(SystemReference(value=system))
+                    scc_dos.method_ref.append(MethodReference(value=method))
+                    sec_dos = scc_dos.m_create(Dos, Calculation.dos_electronic)
 
                     first_row = dos_f25["first_row"]
                     cols = int(first_row[0])
                     rows = int(first_row[1])
                     de = first_row[3]
                     fermi_energy = first_row[4]
-                    scc_dos.energy_reference_fermi = np.array([fermi_energy]) * ureg.hartree
+                    scc_dos.energy = Energy(fermi=fermi_energy * ureg.hartree)
 
                     second_row = dos_f25["second_row"]
                     start_energy = second_row[1]
-                    sec_dos.dos_energies = (start_energy + np.arange(rows) * de) * ureg.hartree
+                    sec_dos.energies = (start_energy + np.arange(rows) * de) * ureg.hartree
 
                     dos_values = dos_f25["values"]
                     dos_values = to_array(cols, rows, dos_values)
-                    sec_dos.dos_values = dos_values.T
-                    sec_dos.dos_kind = "electronical"
-                    sec_dos.number_of_dos_values = sec_dos.dos_values.shape[1]
-                    scc_dos.m_add_sub_section(section_single_configuration_calculation.section_dos, sec_dos)
-                    run.m_add_sub_section(section_run.section_single_configuration_calculation, scc_dos)
+                    dos_values = dos_values.T
+                    for n_spin, dos_value in enumerate(dos_values):
+                        sec_dos.spin = n_spin
+                        sec_dos.total.append(DosValues(value=dos_value))
 
         # Sampling
         geo_opt = out["geo_opt"]
         if geo_opt is not None:
             steps = geo_opt["geo_opt_step"]
             if steps is not None:
-                sampling_method = section_sampling_method()
-                sampling_method.sampling_method = "geometry_optimization"
-                sampling_method.geometry_optimization_energy_change = out["energy_change"]
-                sampling_method.geometry_optimization_geometry_change = out["geometry_change"]
-                run.m_add_sub_section(section_run.section_sampling_method, sampling_method)
-                fs = section_frame_sequence()
-                run.m_add_sub_section(section_run.section_frame_sequence, fs)
+                workflow = archive.m_create(Workflow)
+                workflow.type = "geometry_optimization"
+                geometry_opt = workflow.m_create(GeometryOptimization)
+                geometry_opt.convergence_tolerance_energy_difference = out["energy_change"]
+                geometry_opt.convergence_tolerance_displacement_maximum = out["geometry_change"]
 
                 # First step is special: it refers to the initial system which
                 # was printed before entering the geometry optimization loop.
                 i_system = system
                 i_energy = steps[0]["energy"]
-                scc.energy_total = i_energy
+                scc.energy.total = EnergyEntry(value=i_energy)
 
                 frames = []
                 for step in steps[1:]:
-                    i_scc = section_single_configuration_calculation()
-                    i_system = section_system()
+                    i_scc = run.m_create(Calculation)
+                    i_system = run.m_create(System)
                     i_energy = step["energy"]
                     if step["labels_positions_nanotube"] is not None:
                         i_labels_positions = step["labels_positions_nanotube"]
@@ -924,24 +924,17 @@ class CrystalParser(FairdiParser):
                         i_lattice_parameters,
                         pos_type,
                     )
-                    i_system.atom_species = i_atomic_numbers
-                    i_system.atom_labels = i_atom_labels
-                    i_system.atom_positions = i_cart_pos
-                    i_system.lattice_vectors = i_lattice_vectors
-                    i_system.configuration_periodic_dimensions = pbc
-                    i_scc.energy_total = i_energy
+                    i_system.atoms = Atoms(
+                        species=i_atomic_numbers, labels=i_atom_labels, positions=i_cart_pos,
+                        lattice_vectors=i_lattice_vectors, periodic=pbc)
+                    i_scc.energy = Energy(total=EnergyEntry(value=i_energy))
 
-                    i_scc.single_configuration_calculation_to_system_ref = i_system
-                    i_scc.single_configuration_to_calculation_method_ref = method
+                    i_scc.system_ref.append(SystemReference(value=i_system))
+                    i_scc.method_ref.append(MethodReference(value=method))
 
-                    run.m_add_sub_section(section_run.section_system, i_system)
-                    run.m_add_sub_section(section_run.section_single_configuration_calculation, i_scc)
                     frames.append(i_scc)
-
-                fs.frame_sequence_local_frames_ref = frames
-                fs.number_of_frames_in_sequence = len(fs.frame_sequence_local_frames_ref)
-                fs.frame_sequence_to_sampling_ref = sampling_method
-                fs.geometry_optimization_converged = geo_opt["converged"] == "CONVERGED"
+                workflow.calculations_ref = frames
+                geometry_opt.is_converged_geometry = geo_opt["converged"] == "CONVERGED"
 
         # Remove ghost atom information. The metainfo does not provide a very
         # good way to deal with them currently so they are simply removed.
@@ -1067,12 +1060,12 @@ def remove_ghosts(run):
     """Removes ghost atoms from the given section_system. In Crystal ghost
     atoms are indicated by the atomic number 0.
     """
-    for system in run.section_system:
-        ghosts_mask = system.atom_species == 0
+    for system in run.system:
+        ghosts_mask = system.atoms.species == 0
         if np.any(ghosts_mask):
-            system.atom_species = np.delete(system.atom_species, ghosts_mask)
-            system.atom_labels = np.delete(system.atom_labels, ghosts_mask)
-            system.atom_positions = np.delete(system.atom_positions.magnitude, ghosts_mask, axis=0)
+            system.atoms.species = np.delete(system.atoms.species, ghosts_mask)
+            system.atoms.labels = np.delete(system.atoms.labels, ghosts_mask)
+            system.atoms.positions = np.delete(system.atoms.positions.magnitude, ghosts_mask, axis=0)
 
 
 def label_to_atomic_number(value):
@@ -1168,10 +1161,10 @@ def to_libxc(exchange, correlation, exchange_correlation):
     # Go throught the XC list and add the sections and gather a summary
     functionals = []
     for xc in xc_list:
-        section = section_XC_functionals()
+        section = Functional()
         weight = 1.0
-        section.XC_functional_name = xc
-        section.XC_functional_weight = weight
+        section.name = xc
+        section.weight = weight
         functionals.append(section)
 
     return functionals
@@ -1210,25 +1203,25 @@ def to_libxc_out(xc, hybridization):
 
     # Shortcuts
     if norm_x == "GGA_X_PBE" and norm_c == "GGA_C_PBE" and hybridization == 25.00:
-        section = section_XC_functionals()
-        section.XC_functional_name = "HYB_GGA_XC_PBEH"
-        section.XC_functional_weight = 1
+        section = Functional()
+        section.name = "HYB_GGA_XC_PBEH"
+        section.weight = 1
         return [section]
 
     # Go throught the XC list and add the sections and gather a summary
     functionals = []
     if hybridization:
-        section = section_XC_functionals()
-        section.XC_functional_name = "HF_X"
-        section.XC_functional_weight = float(hybridization) / 100
+        section = Functional()
+        section.name = "HF_X"
+        section.weight = float(hybridization) / 100
         functionals.append(section)
     for xc in xc_list:
-        section = section_XC_functionals()
+        section = Functional()
         weight = 1.0
         if hybridization and "_X_" in xc:
             weight = 1.0 - float(hybridization) / 100
-        section.XC_functional_name = xc
-        section.XC_functional_weight = weight
+        section.name = xc
+        section.weight = weight
         functionals.append(section)
 
     return functionals
@@ -1238,4 +1231,4 @@ def to_libxc_name(functionals):
     """Given a list of section_XC_functionals, returns the single string that
     represents them all.
     """
-    return "+".join("{}*{}".format(x.XC_functional_weight, x.XC_functional_name) for x in sorted(functionals, key=lambda x: x.XC_functional_name))
+    return "+".join("{}*{}".format(x.weight, x.name) for x in sorted(functionals, key=lambda x: x.name))
