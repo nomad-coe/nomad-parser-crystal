@@ -28,14 +28,13 @@ from nomad.units import ureg
 from nomad import atomutils
 from nomad.parsing.parser import FairdiParser
 from nomad.parsing.file_parser import TextParser, Quantity
-from nomad.datamodel.metainfo.run.run import Run, Program, TimeRun
-from nomad.datamodel.metainfo.run.system import (
-    System, Atoms, SystemReference)
-from nomad.datamodel.metainfo.run.method import (
-    Method, BasisSet, Electronic, Scf, DFT, XCFunctional, Functional, BasisSetAtomCentered,
-    MethodReference
+from nomad.datamodel.metainfo.simulation.run import Run, Program, TimeRun
+from nomad.datamodel.metainfo.simulation.system import (
+    System, Atoms)
+from nomad.datamodel.metainfo.simulation.method import (
+    Method, BasisSet, Electronic, Scf, DFT, XCFunctional, Functional, BasisSetAtomCentered
 )
-from nomad.datamodel.metainfo.run.calculation import (
+from nomad.datamodel.metainfo.simulation.calculation import (
     Calculation, ScfIteration, Energy, EnergyEntry, Forces, ForcesEntry, BandStructure,
     BandEnergies, Dos, DosValues
 )
@@ -808,8 +807,8 @@ class CrystalParser(FairdiParser):
         forces = out["forces"]
         if forces is not None:
             scc.forces = Forces(total=ForcesEntry(value=forces[:, 2:].astype(float) * ureg.hartree / ureg.bohr))
-        scc.system_ref.append(SystemReference(value=system))
-        scc.method_ref.append(MethodReference(value=method))
+        scc.system_ref = system
+        scc.method_ref = method
 
         # Band structure
         band_structure = out["band_structure"]
@@ -865,8 +864,8 @@ class CrystalParser(FairdiParser):
                 dos_f25 = f25["dos"]
                 if dos_f25 is not None:
                     scc_dos = run.m_create(Calculation)
-                    scc_dos.system_ref.append(SystemReference(value=system))
-                    scc_dos.method_ref.append(MethodReference(value=method))
+                    scc_dos.system_ref = system
+                    scc_dos.method_ref = method
                     sec_dos = scc_dos.m_create(Dos, Calculation.dos_electronic)
 
                     first_row = dos_f25["first_row"]
@@ -929,8 +928,8 @@ class CrystalParser(FairdiParser):
                         lattice_vectors=i_lattice_vectors, periodic=pbc)
                     i_scc.energy = Energy(total=EnergyEntry(value=i_energy))
 
-                    i_scc.system_ref.append(SystemReference(value=i_system))
-                    i_scc.method_ref.append(MethodReference(value=method))
+                    i_scc.system_ref = i_system
+                    i_scc.method_ref = method
 
                     frames.append(i_scc)
                 workflow.calculations_ref = frames
