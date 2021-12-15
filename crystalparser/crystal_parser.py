@@ -158,8 +158,8 @@ class CrystalParser(FairdiParser):
                 Quantity(
                     'lattice_parameters',
                     fr' (?:PRIMITIVE CELL - CENTRING CODE\s*[\s\S]*?\s*VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3{br}|PRIMITIVE CELL{br})' +\
-                    fr'         A              B              C           ALPHA      BETA       GAMMA\s*' +\
-                    fr'{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}',
+                    fr'\s+A\s+B\s+C\s+ALPHA\s+BETA\s+GAMMA.*\s+' +\
+                    fr'{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}',
                     shape=(6),
                     dtype=np.float64,
                     repeats=False,
@@ -179,23 +179,25 @@ class CrystalParser(FairdiParser):
                 # substitutions, supercells, deformations etc. in any order.
                 Quantity(
                     'system_edited',
-                    fr' \*\s+GEOMETRY EDITING[\S\s]*?' +\
-                    re.escape(' *******************************************************************************') + fr'{br}' +\
-                    fr' LATTICE PARAMETERS \(ANGSTROMS AND DEGREES\) - BOHR =\s*0?\.\d+ ANGSTROM{br}' +\
-                    fr' (?:PRIMITIVE CELL - CENTRING CODE [\s\S]*?VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3|PRIMITIVE CELL){br}' +\
-                    fr'\s+A\s+B\s+C\s+ALPHA\s+BETA\s+GAMMA\s*{br}' +\
-                    fr'(\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}{br}' +\
-                    re.escape(' *******************************************************************************') + fr'{br}' +\
-                    fr' ATOMS IN THE ASYMMETRIC UNIT\s+{integer} - ATOMS IN THE UNIT CELL:\s+{integer}{br}' +\
-                    fr'\s+ATOM\s+X(?:/A|\(ANGSTROM\))\s+Y(?:/B|\(ANGSTROM\))\s+Z(?:/C|\(ANGSTROM\))(?:\s+R\(ANGS\))?\s*{br}' +\
-                    re.escape(' *******************************************************************************') +\
-                    fr'(?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]*?\s+{flt}\s+{flt}\s+{flt}(?:\s+{flt})?{br})+)' +\
-                    fr'{br}' +\
-                    fr' T = ATOM BELONGING TO THE ASYMMETRIC UNIT',
+                    fr' \*\s+GEOMETRY EDITING([\s\S]+?)T = ATOM BELONGING TO THE ASYMMETRIC UNIT',
+                    # too many [\s\S] causing problems
+                    # re.escape(' *******************************************************************************') + fr'{br}' +\
+                    # fr' LATTICE PARAMETERS \(ANGSTROMS AND DEGREES\) - BOHR =\s*0?\.\d+ ANGSTROM{br}' +\
+                    # fr' (?:PRIMITIVE CELL - CENTRING CODE [\s\S]+?VOLUME=\s*{flt} - DENSITY\s*{flt} g/cm\^3|PRIMITIVE CELL){br}' +\
+                    # fr'\s+A\s+B\s+C\s+ALPHA\s+BETA\s+GAMMA\s*{br}' +\
+                    # fr'(\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}\s+{flt}{br}' +\
+                    # re.escape(' *******************************************************************************') + fr'{br}' +\
+                    # fr' ATOMS IN THE ASYMMETRIC UNIT\s+{integer} - ATOMS IN THE UNIT CELL:\s+{integer}{br}' +\
+                    # fr'\s+ATOM\s+X(?:/A|\(ANGSTROM\))\s+Y(?:/B|\(ANGSTROM\))\s+Z(?:/C|\(ANGSTROM\))(?:\s+R\(ANGS\))?\s*{br}' +\
+                    # re.escape(' *******************************************************************************') +\
+                    # fr'(?:\s+{integer}\s+(?:T|F)\s+{integer}\s+[\s\S]+?\s+{flt}\s+{flt}\s+{flt}(?:\s+{flt})?{br})+)' +\
+                    # fr'{br}' +\
+                    # fr' T = ATOM BELONGING TO THE ASYMMETRIC UNIT',
                     sub_parser=TextParser(quantities=[
                         Quantity(
                             "lattice_parameters",
-                            fr'\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}{br}',
+                            fr'A\s+B\s+C\s+ALPHA\s+BETA\s+GAMMA.+'
+                            fr'\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}\s+{flt_c}',
                             shape=(6),
                             dtype=np.float64,
                             repeats=False,
@@ -254,11 +256,11 @@ class CrystalParser(FairdiParser):
                     sub_parser=TextParser(quantities=[
                         Quantity(
                             "basis_sets",
-                            fr'({ws}{integer}{ws}{word}{ws}{flt}{ws}{flt}{ws}{flt}{br}(?:(?:\s+(?:\d+-\s+)?\d+\s+(?:S|P|SP|D|F|G)\s*{br}[\s\S]*?(?:{ws}{flt}(?:{ws})?{flt}(?:{ws})?{flt}(?:{ws})?{flt}{br})+)+)?)',
+                            fr'({br}{ws}{integer}{ws}{word}{ws}{flt}{ws}{flt}{ws}{flt}{br}(?:(?:\s+(?:\d+-\s+)?\d+\s+(?:S|P|SP|D|F|G)\s*{br}[\s\S]*?(?:{ws}{flt}(?:{ws})?{flt}(?:{ws})?{flt}(?:{ws})?{flt}{br})+)+)?)',
                             sub_parser=TextParser(quantities=[
                                 Quantity(
                                     "species",
-                                    fr'({ws}{integer}{ws}{word}{ws}{flt}{ws}{flt}{ws}{flt}{br})',
+                                    fr'{br}({ws}{integer}{ws}{word}{ws}{flt}{ws}{flt}{ws}{flt}{br})',
                                     repeats=False,
                                 ),
                                 Quantity(
@@ -618,6 +620,7 @@ class CrystalParser(FairdiParser):
 
         # By default the system is read from the configuration at the beginning
         # of the file: it may come from restart or clean start
+        atomic_numbers = None
         pos_type = {
             "MOLECULAR CALCULATION": "cartesian",
             "SLAB CALCULATION": "slab",
@@ -648,7 +651,13 @@ class CrystalParser(FairdiParser):
             atomic_numbers = labels_positions[:, 2]
             atom_labels = labels_positions[:, 3]
             atom_pos = labels_positions[:, 4:7]
-            lattice = system_edited["lattice_parameters"]
+            if system_edited["lattice_parameters"] is not None:
+                lattice = system_edited["lattice_parameters"]
+
+        if atomic_numbers is None:
+            # TODO define regex pattern for labels_positions to capture other versions
+            logger.error('Error parsing system.')
+            return
 
         cart_pos, atomic_numbers, atom_labels, lattice_vectors = to_system(
             atomic_numbers,
@@ -784,8 +793,9 @@ class CrystalParser(FairdiParser):
                 energies = scf["energies"]
                 section_scf = scc.m_create(ScfIteration)
                 section_scf.energy = Energy()
-                section_scf.energy.total = EnergyEntry(value=energies[0])
-                section_scf.energy.change = energies[1]
+                if energies is not None:
+                    section_scf.energy.total = EnergyEntry(value=energies[0])
+                    section_scf.energy.change = energies[1]
                 energy_kinetic = scf["energy_kinetic"]
                 section_scf.energy.electronic_kinetic = EnergyEntry(value=energy_kinetic)
                 energy_ee = scf["energy_ee"]
@@ -1072,7 +1082,7 @@ def label_to_atomic_number(value):
     corresponding atomic number.
     """
     symbol = value.lower().capitalize()
-    atomic_number = ase.data.atomic_numbers[symbol]
+    atomic_number = ase.data.atomic_numbers.get(symbol, 0)
     return atomic_number
 
 
