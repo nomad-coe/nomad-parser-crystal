@@ -648,9 +648,11 @@ class CrystalParser(FairdiParser):
                 labels_positions = system_edited["labels_positions_nanotube"]
             else:
                 labels_positions = system_edited["labels_positions"]
-            atomic_numbers = labels_positions[:, 2]
-            atom_labels = labels_positions[:, 3]
-            atom_pos = labels_positions[:, 4:7]
+            # TODO adjust re pattern for other formats e.g. with R(ANGS)
+            if labels_positions is not None:
+                atomic_numbers = labels_positions[:, 2]
+                atom_labels = labels_positions[:, 3]
+                atom_pos = labels_positions[:, 4:7]
             if system_edited["lattice_parameters"] is not None:
                 lattice = system_edited["lattice_parameters"]
 
